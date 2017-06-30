@@ -11,8 +11,9 @@ type ServerUpgarde struct {
 //Server scan package for public function declarations and
 //generates RPC API wrappers for this functions, and RPC client for this API
 func Server(pkg string) (upgrade ServerUpgarde, err error) {
-	functions, _ := parse.FindFunctions(pkg)
-	initServerUpgrade(upgrade)
+	//functions, _ := parse.FindFunctions(pkg)
+	var functions []MetaFunction
+	initServerUpgrade(&upgrade, pkg)
 	for _, function := range functions {
 		addApiEndpoint(upgrade.Server, function)
 		addApiClient(upgrade.Client, function)
