@@ -4,6 +4,9 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"log"
+	"os"
+	"strings"
 )
 
 type Parser struct {
@@ -12,7 +15,13 @@ type Parser struct {
 }
 
 func (p *Parser) Parse(path string) error {
-	pkgs, err := parser.ParseDir(p.fset, path, nil, parser.ParseComments)
+	pkgs, err := parser.ParseDir(p.fset, path, func(info os.FileInfo) bool {
+		name := info.Name()
+		return !info.IsDir() &&
+			!strings.HasPrefix(name, ".") &&
+			strings.HasSuffix(name, ".go") &&
+			!strings.HasSuffix(name, "_test.go")
+	}, parser.ParseComments)
 	if err != nil {
 		return err
 	}
@@ -21,7 +30,8 @@ func (p *Parser) Parse(path string) error {
 }
 
 func (p *Parser) GetFunctions() (functions []Function, err error) {
-	for _, pkg := range p.pkgs {
+	for name, pkg := range p.pkgs {
+		log.Println("Found package ", name)
 		for _, file := range pkg.Files {
 			ast.Inspect(file, func(node ast.Node) bool {
 				switch n := node.(type) {

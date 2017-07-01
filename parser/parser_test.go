@@ -1,9 +1,6 @@
 package parser
 
-import (
-	"log"
-	"testing"
-)
+import "testing"
 
 func TestParser(t *testing.T) {
 	parser := NewParser()
@@ -11,10 +8,13 @@ func TestParser(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
 	functions, err := parser.GetFunctions()
 	if err != nil {
 		t.Error(err)
 	}
-	log.Println(functions)
 
+	if len(functions) == 0 {
+		t.Error("GetFunctions should return more than 0 functions")
+	}
 }
