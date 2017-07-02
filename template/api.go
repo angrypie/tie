@@ -5,7 +5,7 @@ package api
 `
 
 const ApiWrapper = `
-func %s() {
+func %s(%s) {
 
 }
 `
