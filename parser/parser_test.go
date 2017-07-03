@@ -4,6 +4,7 @@ import "testing"
 
 func TestParser(t *testing.T) {
 	parser := NewParser()
+	//TODO parse example package
 	err := parser.Parse("github.com/angrypie/tie/parser")
 	if err != nil {
 		t.Error(err)

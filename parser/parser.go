@@ -7,19 +7,27 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
-	"regexp"
 	"strings"
 )
 
 type Parser struct {
-	fset *token.FileSet
-	pkgs map[string]*ast.Package
-	Path string
+	fset        *token.FileSet
+	pkgs        map[string]*ast.Package
+	Package     string
+	PackagePath string
 }
 
-func (p *Parser) Parse(path string) error {
-	p.Path = fmt.Sprintf("%s/src/%s", build.Default.GOPATH, path)
-	pkgs, err := parser.ParseDir(p.fset, p.Path, func(info os.FileInfo) bool {
+func NewParser() *Parser {
+	fset := token.NewFileSet()
+	return &Parser{
+		fset: fset,
+	}
+}
+
+func (p *Parser) Parse(pkg string) error {
+	p.Package = pkg
+	p.PackagePath = fmt.Sprintf("%s/src/%s", build.Default.GOPATH, pkg)
+	pkgs, err := parser.ParseDir(p.fset, p.PackagePath, func(info os.FileInfo) bool {
 		name := info.Name()
 		return !info.IsDir() &&
 			!strings.HasPrefix(name, ".") &&
@@ -48,27 +56,4 @@ func (p *Parser) GetFunctions() (functions []*Function, err error) {
 		}
 	}
 	return functions, nil
-}
-
-func processFunction(n *ast.FuncDecl) (*Function, bool) {
-	name := n.Name.Name
-	if ok, err := regexp.MatchString("^[A-Z]", name); !ok || err != nil {
-		return nil, false
-	}
-	var args []FunctionArgument
-	for _, param := range n.Type.Params.List {
-		paramName := param.Names[0].Name
-		args = append(args, FunctionArgument{
-			Name: paramName,
-			Type: param.Type,
-		})
-	}
-	return &Function{Name: name, Arguments: args}, true
-}
-
-func NewParser() *Parser {
-	fset := token.NewFileSet()
-	return &Parser{
-		fset: fset,
-	}
 }

@@ -30,8 +30,14 @@ func Server(pkg string) (upgrade ServerUpgrade, err error) {
 	upgrade.initServerUpgrade()
 	for _, function := range functions {
 		log.Println(function.Name)
-		upgrade.addApiEndpoint(function)
-		upgrade.addApiClient(function)
+		err = upgrade.addApiEndpoint(function)
+		if err != nil {
+			return upgrade, err
+		}
+		err = upgrade.addApiClient(function)
+		if err != nil {
+			return upgrade, err
+		}
 	}
 	return upgrade, err
 }

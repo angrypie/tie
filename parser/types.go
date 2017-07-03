@@ -1,13 +1,13 @@
 package parser
 
-import "go/ast"
-
 type FunctionArgument struct {
 	Name string
-	Type ast.Expr
+	Type string
 }
 
 type Function struct {
 	Name      string
 	Arguments []FunctionArgument
+	Results   []FunctionArgument
+	Imports   []string
 }

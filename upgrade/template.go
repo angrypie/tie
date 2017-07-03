@@ -1,9 +1,6 @@
 package upgrade
 
 import (
-	"fmt"
-	"go/types"
-
 	"github.com/angrypie/tie/parser"
 	"github.com/angrypie/tie/template"
 )
@@ -13,15 +10,18 @@ func (upgrade *ServerUpgrade) initServerUpgrade() {
 	upgrade.Server.Write([]byte(header))
 }
 
-func (upgrade *ServerUpgrade) addApiEndpoint(function *parser.Function) {
-	var args string
-	for _, arg := range function.Arguments {
-		args = arg.Name + " " + types.ExprString(arg.Type) + ", "
+func (upgrade *ServerUpgrade) addApiEndpoint(function *parser.Function) error {
+	wrapper, err := template.MakeApiWrapper(function)
+	if err != nil {
+		return err
 	}
-	apiWrapper := fmt.Sprintf(template.ApiWrapper, function.Name, args)
-	upgrade.Server.Write([]byte(apiWrapper))
+	_, err = upgrade.Server.Write(wrapper)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (upgrade *ServerUpgrade) addApiClient(function *parser.Function) {
-
+func (upgrade *ServerUpgrade) addApiClient(function *parser.Function) error {
+	return nil
 }
