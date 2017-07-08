@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"html/template"
+	"strings"
 
 	"github.com/angrypie/tie/parser"
 )
@@ -13,22 +14,35 @@ package api
 `
 
 const ApiWrapper = `
-func {{.Name}}(
-	{{range $k,$v := .Arguments}}
-	{{$v.Name}} {{$v.Type}},
-	{{end}}
-) (
+type {{.Name}}Request struct {
+	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Type}}{{end}}
+}
+
+type {{.Name}}Response struct {
 	{{range $k,$v := .Results}}
 	{{$v.Name}} {{$v.Type}},
 	{{end}}
-){
+}
 
+func {{.Name}}(request *{{.Name}}Request, response *{{.Name}}Response) (err error) {
+	//1. Call original function
+	//2. Put results to response struct
+	//3. Return error or nil
+	return err
 }
 `
 
 func MakeApiWrapper(fn *parser.Function) ([]byte, error) {
 	if fn == nil {
 		return nil, errors.New("fn must be not nil")
+	}
+
+	//TODO: refactoring
+	for i, _ := range fn.Arguments {
+		fn.Arguments[i].Name = strings.Title(fn.Arguments[i].Name)
+	}
+	for i, _ := range fn.Results {
+		fn.Results[i].Name = strings.Title(fn.Results[i].Name)
 	}
 	var buff bytes.Buffer
 	t := template.Must(
