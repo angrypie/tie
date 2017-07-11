@@ -9,24 +9,28 @@ import (
 	"github.com/angrypie/tie/parser"
 )
 
-const ServerHeader = `
-package api
-`
-
 const ApiWrapper = `
 type {{.Name}}Request struct {
-	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Type}}{{end}}
+	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Type}}
+	{{end}}
 }
 
 type {{.Name}}Response struct {
-	{{range $k,$v := .Results}}
-	{{$v.Name}} {{$v.Type}},
+	{{range $k,$v := .Results}}{{$v.Name}} {{$v.Type}}
 	{{end}}
 }
 
 func {{.Name}}(request *{{.Name}}Request, response *{{.Name}}Response) (err error) {
 	//1. Call original function
+
+
+	{{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}} := {{.Package}}.{{.Name}}(
+		{{range $k,$v := .Arguments}}request.{{$v.Name}},
+		{{end}}
+	)
 	//2. Put results to response struct
+	{{range $k,$v := .Results}}response.{{$v.Name}} = {{$v.Name}}
+	{{end}}
 	//3. Return error or nil
 	return err
 }
