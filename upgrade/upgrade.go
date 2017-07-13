@@ -27,7 +27,8 @@ func Server(pkg string) (upgrade ServerUpgrade, err error) {
 	if err != nil {
 		return upgrade, err
 	}
-	upgrade.initServerUpgrade()
+
+	upgrade.initServerUpgrade(p)
 	for _, function := range functions {
 		log.Println(function.Name)
 		err = upgrade.addApiEndpoint(function)

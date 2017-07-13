@@ -10,11 +10,16 @@ import (
 	"strings"
 )
 
+type Package struct {
+	Name  string
+	Alias string
+	Path  string
+}
+
 type Parser struct {
-	fset        *token.FileSet
-	pkgs        map[string]*ast.Package
-	Package     string
-	PackagePath string
+	fset    *token.FileSet
+	pkgs    map[string]*ast.Package
+	Package *Package
 }
 
 func NewParser() *Parser {
@@ -25,15 +30,15 @@ func NewParser() *Parser {
 }
 
 func (p *Parser) Parse(pkg string) error {
-	p.Package = pkg
-	p.PackagePath = fmt.Sprintf("%s/src/%s", build.Default.GOPATH, pkg)
-	pkgs, err := parser.ParseDir(p.fset, p.PackagePath, func(info os.FileInfo) bool {
-		name := info.Name()
-		return !info.IsDir() &&
-			!strings.HasPrefix(name, ".") &&
-			strings.HasSuffix(name, ".go") &&
-			!strings.HasSuffix(name, "_test.go")
-	}, parser.ParseComments)
+	p.Package = NewPackage(pkg)
+	pkgs, err := parser.ParseDir(
+		p.fset, p.Package.Path, func(info os.FileInfo) bool {
+			name := info.Name()
+			return !info.IsDir() &&
+				!strings.HasPrefix(name, ".") &&
+				strings.HasSuffix(name, ".go") &&
+				!strings.HasSuffix(name, "_test.go")
+		}, parser.ParseComments)
 	if err != nil {
 		return err
 	}
@@ -47,7 +52,7 @@ func (p *Parser) GetFunctions() (functions []*Function, err error) {
 			ast.Inspect(file, func(node ast.Node) bool {
 				switch n := node.(type) {
 				case *ast.FuncDecl:
-					if function, ok := processFunction(n); ok {
+					if function, ok := p.processFunction(n); ok {
 						functions = append(functions, function)
 					}
 				}
@@ -56,4 +61,14 @@ func (p *Parser) GetFunctions() (functions []*Function, err error) {
 		}
 	}
 	return functions, nil
+}
+
+func NewPackage(name string) *Package {
+	arr := strings.Split(name, "/")
+	alias := arr[len(arr)-1]
+	return &Package{
+		Name:  name,
+		Alias: alias,
+		Path:  fmt.Sprintf("%s/src/%s", build.Default.GOPATH, name),
+	}
 }

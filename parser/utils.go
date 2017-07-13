@@ -4,10 +4,10 @@ import (
 	"go/ast"
 	"go/types"
 	"regexp"
-	"strings"
+	"strconv"
 )
 
-func processFunction(n *ast.FuncDecl) (*Function, bool) {
+func (p *Parser) processFunction(n *ast.FuncDecl) (*Function, bool) {
 	name := n.Name.Name
 	if ok, err := regexp.MatchString("^[A-Z]", name); !ok || err != nil {
 		return nil, false
@@ -21,6 +21,7 @@ func processFunction(n *ast.FuncDecl) (*Function, bool) {
 		Arguments: args,
 		Results:   results,
 		Imports:   imports,
+		Package:   p.Package.Alias,
 	}, true
 }
 
@@ -29,19 +30,21 @@ func extractArgsList(list *ast.FieldList) (args []FunctionArgument) {
 		return args
 	}
 	params := list.List
-	for _, param := range params {
-		var paramName string
+	for count, param := range params {
+		currentType := types.ExprString(param.Type)
 		if len(param.Names) != 0 {
-			var names []string
 			for _, name := range param.Names {
-				names = append(names, name.Name)
+				args = append(args, FunctionArgument{
+					Name: name.Name,
+					Type: currentType,
+				})
 			}
-			paramName = strings.Join(names, ", ")
+		} else {
+			args = append(args, FunctionArgument{
+				Name: "arg" + strconv.Itoa(count),
+				Type: currentType,
+			})
 		}
-		args = append(args, FunctionArgument{
-			Name: paramName,
-			Type: types.ExprString(param.Type),
-		})
 	}
 	return args
 }

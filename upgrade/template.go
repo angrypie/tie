@@ -5,9 +5,16 @@ import (
 	"github.com/angrypie/tie/template"
 )
 
-func (upgrade *ServerUpgrade) initServerUpgrade() {
-	header := template.ServerHeader
-	upgrade.Server.Write([]byte(header))
+func (upgrade *ServerUpgrade) initServerUpgrade(p *parser.Parser) error {
+	header, err := template.MakeServerHeader(p)
+	if err != nil {
+		return err
+	}
+	upgrade.Server.Write(header)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (upgrade *ServerUpgrade) addApiEndpoint(function *parser.Function) error {

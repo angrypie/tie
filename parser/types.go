@@ -10,4 +10,5 @@ type Function struct {
 	Arguments []FunctionArgument
 	Results   []FunctionArgument
 	Imports   []string
+	Package   string
 }
