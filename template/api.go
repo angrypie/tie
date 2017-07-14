@@ -20,7 +20,7 @@ type {{.Name}}Response struct {
 	{{end}}
 }
 
-func {{.Name}}(request *{{.Name}}Request, response *{{.Name}}Response) (err error) {
+func (r *Resource_{{.Package}}) {{.Name}}(request *{{.Name}}Request, response *{{.Name}}Response) (err error) {
 	//1. Call original function
 
 
@@ -41,13 +41,14 @@ func MakeApiWrapper(fn *parser.Function) ([]byte, error) {
 		return nil, errors.New("fn must be not nil")
 	}
 
-	//TODO: refactoring
 	for i, _ := range fn.Arguments {
 		fn.Arguments[i].Name = strings.Title(fn.Arguments[i].Name)
 	}
+
 	for i, _ := range fn.Results {
 		fn.Results[i].Name = strings.Title(fn.Results[i].Name)
 	}
+
 	var buff bytes.Buffer
 	t := template.Must(
 		template.New("api_wrapper").Parse(ApiWrapper),

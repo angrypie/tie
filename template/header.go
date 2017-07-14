@@ -11,11 +11,18 @@ const ServerHeader = `
 //Server api for package: {{.Package.Name}}
 //absolute path: {{.Package.Path}}
 //package alias: {{.Package.Alias}}
+
 package main
 import (
 	//import original package
 	"{{.Package.Name}}"
+
+	//import RPCX package
+	"github.com/smallnest/rpcx"
 )
+
+//Main api resource (for pure functions)
+type Resource_{{.Package.Alias}} struct {}
 `
 
 func MakeServerHeader(p *parser.Parser) ([]byte, error) {

@@ -27,7 +27,6 @@ func Server(pkg string) (upgrade ServerUpgrade, err error) {
 	if err != nil {
 		return upgrade, err
 	}
-
 	upgrade.initServerUpgrade(p)
 	for _, function := range functions {
 		log.Println(function.Name)
@@ -40,6 +39,12 @@ func Server(pkg string) (upgrade ServerUpgrade, err error) {
 			return upgrade, err
 		}
 	}
+
+	err = upgrade.addServerMain(p)
+	if err != nil {
+		return upgrade, err
+	}
+
 	return upgrade, err
 }
 

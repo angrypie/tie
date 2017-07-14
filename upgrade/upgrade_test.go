@@ -1,7 +1,7 @@
 package upgrade
 
 import (
-	"os"
+	"io/ioutil"
 	"testing"
 )
 
@@ -11,7 +11,7 @@ func TestUpgrade(t *testing.T) {
 		t.Error(err)
 	}
 
-	_, err = upgrade.Server.WriteTo(os.Stdout)
+	err = ioutil.WriteFile("/tmp/dat1", upgrade.Server.Bytes(), 0644)
 	if err != nil {
 		t.Error(err)
 	}
