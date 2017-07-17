@@ -1,9 +1,6 @@
 package upgrade
 
-import (
-	"io/ioutil"
-	"testing"
-)
+import "testing"
 
 func TestUpgrade(t *testing.T) {
 	upgrade, err := Server("github.com/angrypie/tie/example/basic")
@@ -11,7 +8,7 @@ func TestUpgrade(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = ioutil.WriteFile("/tmp/dat1", upgrade.Server.Bytes(), 0644)
+	err = upgrade.Write()
 	if err != nil {
 		t.Error(err)
 	}

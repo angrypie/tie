@@ -11,8 +11,9 @@ type Upgrade struct {
 }
 
 type ServerUpgrade struct {
-	Server bytes.Buffer
-	Client bytes.Buffer
+	Server  bytes.Buffer
+	Client  bytes.Buffer
+	Package *parser.Package
 }
 
 //Server scan package for public function declarations and
@@ -45,6 +46,10 @@ func Server(pkg string) (upgrade ServerUpgrade, err error) {
 		return upgrade, err
 	}
 
+	//add client header
+	//add client rpc calls
+
+	upgrade.Package = p.Package
 	return upgrade, err
 }
 
