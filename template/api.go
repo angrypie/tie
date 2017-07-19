@@ -9,6 +9,43 @@ import (
 	"github.com/angrypie/tie/parser"
 )
 
+const ApiClient = `
+type {{.Name}}Request struct {
+	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Type}}
+	{{end}}
+}
+
+type {{.Name}}Response struct {
+	{{range $k,$v := .Results}}{{$v.Name}} {{$v.Type}}
+	{{end}}
+}
+
+func {{.Name}}(
+	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Type}},
+	{{end}}
+) (
+	{{range $k,$v := .Results}}{{$v.Name}} {{$v.Type}},
+	{{end}}
+) {
+	s := &rpcx.DirectClientSelector{
+		Network: "tcp",
+		Address: "127.0.0.1:9999",
+		DialTimeout: 2 * time.Second,
+	}
+	client := rpcx.NewClient(s)
+
+	request := &{{.Name}}Request{
+		{{range $k,$v := .Arguments}}{{$v.Name}},
+		{{end}}
+	}
+
+	var response {{.Name}}Response
+
+	client.Call(context.Background(), "Resource_{{.Package}}.{{.Name}}", request, &response)
+	client.Close()
+	return {{range $k,$v := .Results}}{{if $k}},{{end}} response.{{$v.Name}}{{end}}
+}
+`
 const ApiWrapper = `
 type {{.Name}}Request struct {
 	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Type}}
@@ -52,6 +89,32 @@ func MakeApiWrapper(fn *parser.Function) ([]byte, error) {
 	var buff bytes.Buffer
 	t := template.Must(
 		template.New("api_wrapper").Parse(ApiWrapper),
+	)
+	err := t.Execute(&buff, fn)
+	if err != nil {
+		return nil, err
+	}
+
+	return buff.Bytes(), nil
+}
+
+//TODO refactor
+func MakeApiClient(fn *parser.Function) ([]byte, error) {
+	if fn == nil {
+		return nil, errors.New("fn must be not nil")
+	}
+
+	for i, _ := range fn.Arguments {
+		fn.Arguments[i].Name = strings.Title(fn.Arguments[i].Name)
+	}
+
+	for i, _ := range fn.Results {
+		fn.Results[i].Name = strings.Title(fn.Results[i].Name)
+	}
+
+	var buff bytes.Buffer
+	t := template.Must(
+		template.New("api_client").Parse(ApiClient),
 	)
 	err := t.Execute(&buff, fn)
 	if err != nil {

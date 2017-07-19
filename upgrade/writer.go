@@ -12,6 +12,14 @@ func (upgrade *ServerUpgrade) Write() error {
 		return err
 	}
 
+	err = ioutil.WriteFile(
+		upgrade.Package.Path+"/tie_client/client.go",
+		upgrade.Client.Bytes(), 0644,
+	)
+	if err != nil {
+		return err
+	}
+
 	//upgrade.Client
 	//write to path/tie_client/client.go
 	//upgrade.Server

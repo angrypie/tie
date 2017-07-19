@@ -6,14 +6,25 @@ import (
 )
 
 func (upgrade *ServerUpgrade) initServerUpgrade(p *parser.Parser) error {
-	header, err := template.MakeServerHeader(p)
+	serverHeader, err := template.MakeServerHeader(p)
 	if err != nil {
 		return err
 	}
-	upgrade.Server.Write(header)
+
+	clientHeader, err := template.MakeClientHeader(p)
 	if err != nil {
 		return err
 	}
+
+	upgrade.Server.Write(serverHeader)
+	if err != nil {
+		return err
+	}
+	upgrade.Client.Write(clientHeader)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -34,7 +45,18 @@ func (upgrade *ServerUpgrade) addApiEndpoint(function *parser.Function) error {
 	if err != nil {
 		return err
 	}
+
+	client, err := template.MakeApiClient(function)
+	if err != nil {
+		return err
+	}
+
 	_, err = upgrade.Server.Write(wrapper)
+	if err != nil {
+		return err
+	}
+
+	_, err = upgrade.Client.Write(client)
 	if err != nil {
 		return err
 	}
