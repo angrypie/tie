@@ -1,39 +1,59 @@
 package upgrade
 
 import (
-	"io/ioutil"
 	"strconv"
+
+	"github.com/spf13/afero"
 )
 
 func (upgrade *ServerUpgrade) Write() error {
-	//upgrade.Package.Path
-	err := ioutil.WriteFile(
-		upgrade.Package.Path+"/tie_server/server.go",
-		upgrade.Server.Bytes(), 0644,
+	fs := afero.NewOsFs()
+	path := upgrade.Package.Path
+	err := fs.MkdirAll(path+"/tie_server", 0755)
+	if err != nil {
+		return err
+	}
+	err = afero.WriteFile(
+		fs,
+		path+"/tie_server/server.go",
+		upgrade.Server.Bytes(),
+		0644,
 	)
 	if err != nil {
 		return err
 	}
 
-	err = ioutil.WriteFile(
-		upgrade.Package.Path+"/tie_client/client.go",
-		upgrade.Client.Bytes(), 0644,
+	err = fs.MkdirAll(path+"/tie_client", 0755)
+	if err != nil {
+		return err
+	}
+	err = afero.WriteFile(
+		fs,
+		path+"/tie_client/client.go",
+		upgrade.Client.Bytes(),
+		0644,
 	)
 	if err != nil {
 		return err
 	}
 
-	//upgrade.Client
-	//write to path/tie_client/client.go
-	//upgrade.Server
 	return nil
 }
 func (upgrade *ClientUpgrade) Write() error {
 	//upgrade.Package.Path
+	fs := afero.NewOsFs()
+	folder := upgrade.Parser.Package.Path + "/tie_bin"
+	err := fs.MkdirAll(folder, 0755)
+	if err != nil {
+		return err
+	}
+
 	for index, file := range upgrade.Client {
-		err := ioutil.WriteFile(
-			upgrade.Parser.Package.Path+"/tie_bin/"+strconv.Itoa(index)+".go",
-			file.Bytes(), 0644,
+		err := afero.WriteFile(
+			fs,
+			folder+"/"+strconv.Itoa(index)+".go",
+			file.Bytes(),
+			0644,
 		)
 		if err != nil {
 			return err
