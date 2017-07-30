@@ -1,13 +1,17 @@
 package parser
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
 	"go/build"
 	"go/parser"
+	"go/printer"
 	"go/token"
 	"os"
 	"strings"
+
+	"golang.org/x/tools/go/ast/astutil"
 )
 
 type Package struct {
@@ -61,6 +65,25 @@ func (p *Parser) GetFunctions() (functions []*Function, err error) {
 		}
 	}
 	return functions, nil
+}
+
+func (p *Parser) ReplaceImport(from, to string) (ok bool, files []bytes.Buffer) {
+	arr := strings.Split(from, "/")
+	alias := arr[len(arr)-1]
+
+	for _, pkg := range p.pkgs {
+		for _, file := range pkg.Files {
+			ok := astutil.DeleteImport(p.fset, file, from)
+			ok = ok && astutil.AddNamedImport(p.fset, file, alias, to)
+			if !ok {
+				return false, nil
+			}
+			var buf bytes.Buffer
+			printer.Fprint(&buf, p.fset, file)
+			files = append(files, buf)
+		}
+	}
+	return true, files
 }
 
 func NewPackage(name string) *Package {
