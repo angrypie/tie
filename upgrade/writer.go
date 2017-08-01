@@ -39,6 +39,7 @@ func (upgrade *ServerUpgrade) Write() error {
 
 	return nil
 }
+
 func (upgrade *ClientUpgrade) Write() error {
 	//upgrade.Package.Path
 	fs := afero.NewOsFs()
@@ -58,6 +59,33 @@ func (upgrade *ClientUpgrade) Write() error {
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (upgrade *ClientUpgrade) Clean() error {
+	//upgrade.Package.Path
+	fs := afero.NewOsFs()
+	folder := upgrade.Parser.Package.Path + "/tie_bin"
+	err := fs.RemoveAll(folder)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (upgrade *ServerUpgrade) Clean() error {
+	fs := afero.NewOsFs()
+	path := upgrade.Package.Path
+
+	err := fs.RemoveAll(path + "/tie_server")
+	if err != nil {
+		return err
+	}
+
+	err = fs.RemoveAll(path + "/tie_client")
+	if err != nil {
+		return err
 	}
 	return nil
 }

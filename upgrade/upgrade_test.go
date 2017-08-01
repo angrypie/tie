@@ -30,12 +30,22 @@ func TestUpgrade(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = server.Build()
+	err = server.BuildTo("/tmp")
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = client.Build()
+	err = client.BuildTo("/tmp")
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = server.Clean()
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = client.Clean()
 	if err != nil {
 		t.Error(err)
 	}

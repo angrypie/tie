@@ -6,12 +6,16 @@ import (
 )
 
 func (upgrade *ServerUpgrade) Build() error {
+	return upgrade.BuildTo("..")
+}
+
+func (upgrade *ServerUpgrade) BuildTo(dest string) error {
 	path := upgrade.Package.Path + "/tie_server"
 	alias := upgrade.Package.Alias
 	buildComand := fmt.Sprintf(
 		"cd %s && go build -o %s",
-		path+"/..",
-		alias,
+		path,
+		dest+"/"+alias,
 	)
 
 	err := exec.Command("bash", "-c", buildComand).Run()
@@ -22,12 +26,16 @@ func (upgrade *ServerUpgrade) Build() error {
 }
 
 func (upgrade *ClientUpgrade) Build() error {
+	return upgrade.BuildTo("..")
+}
+
+func (upgrade *ClientUpgrade) BuildTo(dist string) error {
 	path := upgrade.Parser.Package.Path + "/tie_bin"
 	alias := upgrade.Parser.Package.Alias
 	buildComand := fmt.Sprintf(
 		"cd %s && go build -o %s",
-		path+"/..",
-		alias,
+		path,
+		dist+"/"+alias,
 	)
 
 	err := exec.Command("bash", "-c", buildComand).Run()
