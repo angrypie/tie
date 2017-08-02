@@ -1,16 +1,16 @@
 package main
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/angrypie/tie/example/basic"
 )
 
 func main() {
-	res, err := basic.Mul(5, 9)
+	res, err := basic.Mul(7, 6)
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 	} else {
-		log.Println("Result: ", res)
+		fmt.Printf("%d+%d=%d\n", 7, 5, res)
 	}
 }

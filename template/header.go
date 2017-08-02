@@ -15,7 +15,7 @@ const ServerHeader = `
 package main
 import (
 	//import original package
-	"{{.Package.Name}}"
+	{{.Package.Alias}} "{{.Package.Name}}"
 
 	//import RPCX package
 	"github.com/smallnest/rpcx"

@@ -10,9 +10,10 @@ type Upgrade struct {
 }
 
 type ServerUpgrade struct {
-	Server  bytes.Buffer
-	Client  bytes.Buffer
-	Package *parser.Package
+	Server    bytes.Buffer
+	Client    bytes.Buffer
+	Package   *parser.Package
+	Functions []*parser.Function
 }
 
 type ClientUpgrade struct {
@@ -30,6 +31,7 @@ func Server(pkg string) (upgrade *ServerUpgrade, err error) {
 		return upgrade, err
 	}
 	functions, err := p.GetFunctions()
+	upgrade.Functions = functions
 	if err != nil {
 		return upgrade, err
 	}

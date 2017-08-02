@@ -68,15 +68,18 @@ func (p *Parser) GetFunctions() (functions []*Function, err error) {
 }
 
 func (p *Parser) ReplaceImport(from, to string) (ok bool, files []bytes.Buffer) {
+	ok = true
 	arr := strings.Split(from, "/")
 	alias := arr[len(arr)-1]
 
 	for _, pkg := range p.pkgs {
 		for _, file := range pkg.Files {
 			ok := astutil.DeleteImport(p.fset, file, from)
-			ok = ok && astutil.AddNamedImport(p.fset, file, alias, to)
-			if !ok {
-				return false, nil
+			if ok {
+				ok = astutil.AddNamedImport(p.fset, file, alias, to)
+				if !ok {
+					return false, nil
+				}
 			}
 			var buf bytes.Buffer
 			printer.Fprint(&buf, p.fset, file)
