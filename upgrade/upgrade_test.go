@@ -50,3 +50,16 @@ func TestUpgrade(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestUpgrader(t *testing.T) {
+	upgrader := NewUpgrader("github.com/angrypie/tie/example/basic")
+	err := upgrader.Parse()
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = upgrader.Make()
+	if err != nil {
+		t.Error(err)
+	}
+}

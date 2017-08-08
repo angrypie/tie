@@ -6,9 +6,6 @@ import (
 	"github.com/angrypie/tie/parser"
 )
 
-type Upgrade struct {
-}
-
 type ServerUpgrade struct {
 	Server    bytes.Buffer
 	Client    bytes.Buffer
@@ -22,7 +19,7 @@ type ClientUpgrade struct {
 }
 
 //Server scan package for public function declarations and
-//generates RPC API wrappers for this functions, and RPC client for this API
+//generates RPC API wrappers for this functions and RPC client for this API
 func Server(pkg string) (upgrade *ServerUpgrade, err error) {
 	upgrade = &ServerUpgrade{}
 	p := parser.NewParser()
@@ -36,6 +33,7 @@ func Server(pkg string) (upgrade *ServerUpgrade, err error) {
 		return upgrade, err
 	}
 	upgrade.initServerUpgrade(p)
+
 	for _, function := range functions {
 		err = upgrade.addApiEndpoint(function)
 		if err != nil {

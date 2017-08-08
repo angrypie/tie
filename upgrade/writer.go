@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func (upgrade *ServerUpgrade) Write() error {
+func (upgrade *Upgrader) Write() error {
 	fs := afero.NewOsFs()
 	path := upgrade.Package.Path
 	err := fs.MkdirAll(path+"/tie_server", 0755)
@@ -88,4 +88,8 @@ func (upgrade *ServerUpgrade) Clean() error {
 		return err
 	}
 	return nil
+}
+
+func (upgrader *Upgrader) Write() error {
+
 }

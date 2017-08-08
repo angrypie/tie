@@ -67,6 +67,7 @@ func (p *Parser) GetFunctions() (functions []*Function, err error) {
 	return functions, nil
 }
 
+//DEPRECATED
 func (p *Parser) ReplaceImport(from, to string) (ok bool, files []bytes.Buffer) {
 	ok = true
 	arr := strings.Split(from, "/")
@@ -87,6 +88,29 @@ func (p *Parser) ReplaceImport(from, to string) (ok bool, files []bytes.Buffer) 
 		}
 	}
 	return true, files
+}
+
+func (p *Parser) UpgradeApiImports(imports []string) (ok bool) {
+	ok = true
+
+	for _, pkg := range p.pkgs {
+		for _, file := range pkg.Files {
+			for _, path := range imports {
+				//get alias from path
+				//TODO support named ipmports
+				arr := strings.Split(path, "/")
+				alias := arr[len(arr)-1]
+				ok := astutil.DeleteImport(p.fset, file, path)
+				if ok {
+					ok = astutil.AddNamedImport(p.fset, file, alias, path+"/tie_client")
+					if !ok {
+						return false
+					}
+				}
+			}
+		}
+	}
+	return true
 }
 
 func NewPackage(name string) *Package {
