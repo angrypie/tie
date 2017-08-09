@@ -50,9 +50,6 @@ func Server(pkg string) (upgrade *ServerUpgrade, err error) {
 		return upgrade, err
 	}
 
-	//add client header
-	//add client rpc calls
-
 	upgrade.Package = p.Package
 	return upgrade, err
 }

@@ -7,10 +7,11 @@ import (
 )
 
 type Upgrader struct {
-	Client bytes.Buffer
-	Server bytes.Buffer
-	Pkg    string
-	Parser *parser.Parser
+	Client  bytes.Buffer
+	Server  bytes.Buffer
+	Service bytes.Buffer
+	Pkg     string
+	Parser  *parser.Parser
 }
 
 func NewUpgrader(pkgPath string) *Upgrader {

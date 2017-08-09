@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func (upgrade *Upgrader) Write() error {
+func (upgrade *ServerUpgrade) Write() error {
 	fs := afero.NewOsFs()
 	path := upgrade.Package.Path
 	err := fs.MkdirAll(path+"/tie_server", 0755)
@@ -91,5 +91,36 @@ func (upgrade *ServerUpgrade) Clean() error {
 }
 
 func (upgrader *Upgrader) Write() error {
+	fs := afero.NewOsFs()
+	path := upgrader.Parser.Package.Path
+	err := fs.MkdirAll(path+"/tie_server", 0755)
+	if err != nil {
+		return err
+	}
+	err = afero.WriteFile(
+		fs,
+		path+"/tie_server/server.go",
+		upgrader.Server.Bytes(),
+		0644,
+	)
+	if err != nil {
+		return err
+	}
 
+	err = fs.MkdirAll(path+"/tie_client", 0755)
+	if err != nil {
+		return err
+	}
+	err = afero.WriteFile(
+		fs,
+		path+"/tie_client/client.go",
+		upgrader.Client.Bytes(),
+		0644,
+	)
+	if err != nil {
+		return err
+	}
+	//TODO write tie_upgraded
+
+	return nil
 }
