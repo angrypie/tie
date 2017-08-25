@@ -90,6 +90,17 @@ func (p *Parser) ReplaceImport(from, to string) (ok bool, files []bytes.Buffer) 
 	return true, files
 }
 
+func (p *Parser) ToFiles() (files []bytes.Buffer) {
+	for _, pkg := range p.pkgs {
+		for _, file := range pkg.Files {
+			var buf bytes.Buffer
+			printer.Fprint(&buf, p.fset, file)
+			files = append(files, buf)
+		}
+	}
+	return files
+}
+
 func (p *Parser) UpgradeApiImports(imports []string) (ok bool) {
 	ok = true
 

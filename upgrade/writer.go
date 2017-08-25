@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/spf13/afero"
@@ -93,6 +94,8 @@ func (upgrade *ServerUpgrade) Clean() error {
 func (upgrader *Upgrader) Write() error {
 	fs := afero.NewOsFs()
 	path := upgrader.Parser.Package.Path
+
+	//#1
 	err := fs.MkdirAll(path+"/tie_server", 0755)
 	if err != nil {
 		return err
@@ -106,7 +109,27 @@ func (upgrader *Upgrader) Write() error {
 	if err != nil {
 		return err
 	}
+	//#2
 
+	err = fs.MkdirAll(path+"/tie_upgraded", 0755)
+	if err != nil {
+		return err
+	}
+
+	files := upgrader.Parser.ToFiles()
+	for index, file := range files {
+		err = afero.WriteFile(
+			fs,
+			fmt.Sprintf("%s/tie_upgraded/%d.go", path, index),
+			file.Bytes(),
+			0644,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	//#3
 	err = fs.MkdirAll(path+"/tie_client", 0755)
 	if err != nil {
 		return err

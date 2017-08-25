@@ -67,5 +67,4 @@ func TestUpgrader(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
 }
