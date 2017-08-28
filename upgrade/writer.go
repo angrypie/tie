@@ -70,6 +70,7 @@ func (upgrade *ClientUpgrade) Clean() error {
 	folder := upgrade.Parser.Package.Path + "/tie_bin"
 	err := fs.RemoveAll(folder)
 	if err != nil {
+
 		return err
 	}
 	return nil

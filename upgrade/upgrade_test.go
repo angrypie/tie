@@ -67,4 +67,26 @@ func TestUpgrader(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	upgrader = NewUpgrader("github.com/angrypie/tie/example/basic/usage")
+
+	err = upgrader.Parse()
+	if err != nil {
+		t.Error(err)
+	}
+
+	ok := upgrader.Replace([]string{"github.com/angrypie/tie/example/basic"})
+	if !ok {
+		t.Error("Imports should be replaced")
+	}
+
+	err = upgrader.Make()
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = upgrader.Write()
+	if err != nil {
+		t.Error(err)
+	}
 }
