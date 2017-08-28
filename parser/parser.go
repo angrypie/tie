@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/build"
@@ -23,6 +24,7 @@ type Package struct {
 type Parser struct {
 	fset    *token.FileSet
 	pkgs    map[string]*ast.Package
+	pkg     *ast.Package
 	Package *Package
 }
 
@@ -46,7 +48,16 @@ func (p *Parser) Parse(pkg string) error {
 	if err != nil {
 		return err
 	}
+
+	if len(pkgs) != 1 {
+		return errors.New("Parsed directory should contain one package")
+	}
+
 	p.pkgs = pkgs
+	for _, pkg := range pkgs {
+		p.pkg = pkg
+		break
+	}
 	return nil
 }
 
@@ -67,29 +78,6 @@ func (p *Parser) GetFunctions() (functions []*Function, err error) {
 	return functions, nil
 }
 
-//DEPRECATED
-func (p *Parser) ReplaceImport(from, to string) (ok bool, files []bytes.Buffer) {
-	ok = true
-	arr := strings.Split(from, "/")
-	alias := arr[len(arr)-1]
-
-	for _, pkg := range p.pkgs {
-		for _, file := range pkg.Files {
-			ok := astutil.DeleteImport(p.fset, file, from)
-			if ok {
-				ok = astutil.AddNamedImport(p.fset, file, alias, to)
-				if !ok {
-					return false, nil
-				}
-			}
-			var buf bytes.Buffer
-			printer.Fprint(&buf, p.fset, file)
-			files = append(files, buf)
-		}
-	}
-	return true, files
-}
-
 func (p *Parser) ToFiles() (files []bytes.Buffer) {
 	for _, pkg := range p.pkgs {
 		for _, file := range pkg.Files {
@@ -101,8 +89,8 @@ func (p *Parser) ToFiles() (files []bytes.Buffer) {
 	return files
 }
 
-func (p *Parser) UpgradeApiImports(imports []string) (ok bool) {
-	ok = true
+// Return false if import deleted but not added
+func (p *Parser) UpgradeApiImports(imports []string) bool {
 
 	for _, pkg := range p.pkgs {
 		for _, file := range pkg.Files {
@@ -121,6 +109,7 @@ func (p *Parser) UpgradeApiImports(imports []string) (ok bool) {
 			}
 		}
 	}
+
 	return true
 }
 
@@ -132,4 +121,8 @@ func NewPackage(name string) *Package {
 		Alias: alias,
 		Path:  fmt.Sprintf("%s/src/%s", build.Default.GOPATH, name),
 	}
+}
+
+func (p *Parser) GetPackageName() string {
+	return p.pkg.Name
 }

@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"bytes"
+	"errors"
 
 	"github.com/angrypie/tie/parser"
 )
@@ -25,9 +26,12 @@ func (upgrader *Upgrader) Parse() (err error) {
 	return upgrader.Parser.Parse(upgrader.Pkg)
 }
 
-func (upgrader *Upgrader) Replace(imports []string) (ok bool) {
-	ok = upgrader.Parser.UpgradeApiImports(imports)
-	return ok
+func (upgrader *Upgrader) Replace(imports []string) error {
+	ok := upgrader.Parser.UpgradeApiImports(imports)
+	if !ok {
+		return errors.New("Import deleted but not added")
+	}
+	return nil
 }
 
 func (upgrader *Upgrader) Make() (err error) {

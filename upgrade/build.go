@@ -2,42 +2,30 @@ package upgrade
 
 import (
 	"fmt"
+	"log"
 	"os/exec"
 )
 
-func (upgrade *ServerUpgrade) Build() error {
-	return upgrade.BuildTo("..")
+func (upgrader *Upgrader) Build() error {
+	return upgrader.BuildTo("..")
 }
 
-func (upgrade *ServerUpgrade) BuildTo(dest string) error {
-	path := upgrade.Package.Path + "/tie_server"
-	alias := upgrade.Package.Alias
-	buildComand := fmt.Sprintf(
-		"cd %s && go build -o %s",
-		path,
-		dest+"/"+alias,
-	)
-
-	err := exec.Command("bash", "-c", buildComand).Run()
-	if err != nil {
-		return err
+func (upgrader *Upgrader) BuildTo(dist string) error {
+	alias := upgrader.Parser.Package.Alias
+	log.Println(alias)
+	buildDir := "tie_server"
+	if upgrader.Parser.GetPackageName() == "main" {
+		buildDir = "tie_upgraded"
 	}
-	return nil
-}
 
-func (upgrade *ClientUpgrade) Build() error {
-	return upgrade.BuildTo("..")
-}
-
-func (upgrade *ClientUpgrade) BuildTo(dist string) error {
-	path := upgrade.Parser.Package.Path + "/tie_bin"
-	alias := upgrade.Parser.Package.Alias
+	path := fmt.Sprintf("%s/%s", upgrader.Parser.Package.Path, buildDir)
 	buildComand := fmt.Sprintf(
 		"cd %s && go build -o %s",
 		path,
 		dist+"/"+alias,
 	)
 
+	log.Println(buildComand)
 	err := exec.Command("bash", "-c", buildComand).Run()
 	if err != nil {
 		return err
