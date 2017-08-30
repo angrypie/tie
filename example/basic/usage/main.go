@@ -8,6 +8,7 @@ import (
 
 func main() {
 	res, err := basic.Mul(7, 6)
+
 	if err != nil {
 		fmt.Println(err)
 	} else {

@@ -3,8 +3,8 @@ package template
 import (
 	"bytes"
 	"errors"
-	"html/template"
 	"strings"
+	"text/template"
 
 	"github.com/angrypie/tie/parser"
 )
@@ -27,9 +27,14 @@ func {{.Name}}(
 	{{range $k,$v := .Results}}{{$v.Name}} {{$v.Type}},
 	{{end}}
 ) {
+	fmt.Println("Resource_{{.Package}}")
+	port, Err := getLocalService("Resource_{{.Name}}")
+	if Err != nil {
+		return {{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}}
+	}
 	s := &rpcx.DirectClientSelector{
 		Network: "tcp",
-		Address: "127.0.0.1:9999",
+		Address: fmt.Sprintf("127.0.0.1:", port),
 		DialTimeout: 2 * time.Second,
 	}
 	client := rpcx.NewClient(s)

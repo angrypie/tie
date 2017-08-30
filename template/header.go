@@ -2,7 +2,7 @@ package template
 
 import (
 	"bytes"
-	"html/template"
+	"text/template"
 
 	"github.com/angrypie/tie/parser"
 )
@@ -19,10 +19,16 @@ import (
 
 	//import RPCX package
 	"github.com/smallnest/rpcx"
+
+	//import util packages
+	"fmt"
+	"net"
+	"github.com/grandcat/zeroconf"
 )
 
 //Main api resource (for pure functions)
 type Resource_{{.Package.Alias}} struct {}
+
 `
 
 func MakeServerHeader(p *parser.Parser) ([]byte, error) {
@@ -49,7 +55,34 @@ import (
 	"github.com/smallnest/rpcx"
 	"context"
 	"time"
+	"fmt"
+	"github.com/grandcat/zeroconf"
+	"errors"
 )
+func getLocalService(service string) (port int, err error) {
+
+	resolver, err := zeroconf.NewResolver(nil)
+	if err != nil {
+		return port, err
+	}
+
+	entries := make(chan *zeroconf.ServiceEntry)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	err = resolver.Browse(ctx, service, "local.", entries)
+	if err != nil {
+		return port, err
+	}
+
+	select {
+	case <-ctx.Done():
+		return port, errors.New("Service not found")
+
+	case entry := <-entries:
+		return entry.Port, nil
+	}
+}
 `
 
 func MakeClientHeader(p *parser.Parser) ([]byte, error) {

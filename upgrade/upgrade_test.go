@@ -12,18 +12,13 @@ func TestUpgrader(t *testing.T) {
 	//Upgrade basic example
 	basic := NewUpgrader("github.com/angrypie/tie/example/basic")
 	e(basic.Parse())
-
 	e(basic.Make())
-
 	e(basic.Write())
 
 	//Upgrade basic/usage example
 	usage := NewUpgrader("github.com/angrypie/tie/example/basic/usage")
 	e(usage.Parse())
-
 	e(usage.Replace([]string{"github.com/angrypie/tie/example/basic"}))
-
-	e(usage.Make())
 	e(usage.Write())
 
 	//Build basic and usage
@@ -33,5 +28,4 @@ func TestUpgrader(t *testing.T) {
 	//Clean basic and usage
 	//e(usage.Clean())
 	//e(basic.Clean())
-
 }
