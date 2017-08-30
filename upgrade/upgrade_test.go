@@ -26,6 +26,6 @@ func TestUpgrader(t *testing.T) {
 	e(basic.Build())
 
 	//Clean basic and usage
-	//e(usage.Clean())
-	//e(basic.Clean())
+	e(usage.Clean())
+	e(basic.Clean())
 }

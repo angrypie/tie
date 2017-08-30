@@ -27,14 +27,13 @@ func {{.Name}}(
 	{{range $k,$v := .Results}}{{$v.Name}} {{$v.Type}},
 	{{end}}
 ) {
-	fmt.Println("Resource_{{.Package}}")
-	port, Err := getLocalService("Resource_{{.Name}}")
+	port, Err := getLocalService("Resource_{{.Package}}")
 	if Err != nil {
 		return {{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}}
 	}
 	s := &rpcx.DirectClientSelector{
 		Network: "tcp",
-		Address: fmt.Sprintf("127.0.0.1:", port),
+		Address: fmt.Sprintf("127.0.0.1:%d", port),
 		DialTimeout: 2 * time.Second,
 	}
 	client := rpcx.NewClient(s)
