@@ -3,6 +3,8 @@ package tasks
 import (
 	"log"
 
+	"github.com/angrypie/tie/upgrade"
+
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -25,12 +27,33 @@ func Config(config []byte) (err error) {
 		return err
 	}
 
+	var upgraders []*upgrade.Upgrader
+
+	//Create upgraders and replace imports
 	for _, service := range c.Services {
-		err := Binary(service.Name, "/tmp/tie", c.Services)
+		//TODO rename replace function
+		upgrader, err := Replace(service.Name, c.Services)
 		if err != nil {
 			return err
 		}
 		log.Println(service.Name)
+		upgraders = append(upgraders, upgrader)
+	}
+
+	//Build upgraders
+	for _, upgrader := range upgraders {
+		err := upgrader.Build()
+		if err != nil {
+			return err
+		}
+	}
+
+	//Clean tie_ folders
+	for _, upgrader := range upgraders {
+		upgrader.Clean()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
