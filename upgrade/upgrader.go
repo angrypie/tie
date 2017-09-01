@@ -57,3 +57,26 @@ func (upgrader *Upgrader) Make() (err error) {
 
 	return err
 }
+
+func (upgrader *Upgrader) Upgrade(imports []string) error {
+	err := upgrader.Parse()
+	if err != nil {
+		return err
+	}
+
+	err = upgrader.Replace(imports)
+	if err != nil {
+		return err
+	}
+
+	err = upgrader.Make()
+	if err != nil {
+		return err
+	}
+
+	err = upgrader.Write()
+	if err != nil {
+		return err
+	}
+	return nil
+}
