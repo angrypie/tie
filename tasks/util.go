@@ -4,7 +4,8 @@ import (
 	"github.com/angrypie/tie/upgrade"
 )
 
-func Replace(pkg string, services []Service) (*upgrade.Upgrader, error) {
+//upgradeWithServices crate new upgrader for pkg and upgrade with services
+func upgradeWithServices(pkg string, services []Service) (*upgrade.Upgrader, error) {
 	upgrader := upgrade.NewUpgrader(pkg)
 
 	imports := make([]string, len(services))

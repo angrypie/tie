@@ -32,7 +32,7 @@ func Config(config []byte) (err error) {
 	//Create upgraders and replace imports
 	for _, service := range c.Services {
 		//TODO rename replace function
-		upgrader, err := Replace(service.Name, c.Services)
+		upgrader, err := upgradeWithServices(service.Name, c.Services)
 		if err != nil {
 			return err
 		}
