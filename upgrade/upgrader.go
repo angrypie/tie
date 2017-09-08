@@ -7,6 +7,7 @@ import (
 	"github.com/angrypie/tie/parser"
 )
 
+//Upgrader hold parsed package and uses templates to contruct new, upgraded, packages.
 type Upgrader struct {
 	Client  bytes.Buffer
 	Server  bytes.Buffer
@@ -15,6 +16,7 @@ type Upgrader struct {
 	Parser  *parser.Parser
 }
 
+//NewUpgrader returns initialized Upgrader
 func NewUpgrader(pkgPath string) *Upgrader {
 	return &Upgrader{
 		Pkg:    pkgPath,
@@ -22,10 +24,12 @@ func NewUpgrader(pkgPath string) *Upgrader {
 	}
 }
 
+//Parse parses package and creates various structures for for fourther usage in templates
 func (upgrader *Upgrader) Parse() (err error) {
 	return upgrader.Parser.Parse(upgrader.Pkg)
 }
 
+//Replace replaces each given import with RPC client import
 func (upgrader *Upgrader) Replace(imports []string) error {
 	ok := upgrader.Parser.UpgradeApiImports(imports)
 	if !ok {
@@ -34,6 +38,7 @@ func (upgrader *Upgrader) Replace(imports []string) error {
 	return nil
 }
 
+//Make builds client, server, service packages to buffers using tempaltes
 func (upgrader *Upgrader) Make() (err error) {
 	p := upgrader.Parser
 	functions, err := p.GetFunctions()
@@ -58,6 +63,7 @@ func (upgrader *Upgrader) Make() (err error) {
 	return err
 }
 
+//Upgrade consequentialy calls Replace, Make and Write method
 func (upgrader *Upgrader) Upgrade(imports []string) error {
 	err := upgrader.Parse()
 	if err != nil {
