@@ -6,6 +6,7 @@ import (
 	"os/exec"
 )
 
+//Build calls BuildTo method with parent direcotry as argument
 func (upgrader *Upgrader) Build() error {
 	return upgrader.BuildTo("..")
 }
