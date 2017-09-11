@@ -14,7 +14,14 @@ func main() {
 	app.Action = func(c *cli.Context) error {
 		//TODO try to find config or try to use directory schema as config
 		err := tasks.ReadConfigFile("./tie.yml")
-		fmt.Println("Error:", err)
+		if err != nil {
+			fmt.Println("Can't fiend tie.yml in current directory")
+			err := tasks.ReadDirAsConfig(".")
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+
 		return err
 	}
 
