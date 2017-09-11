@@ -1,8 +1,6 @@
 package tasks
 
 import (
-	"log"
-
 	"github.com/angrypie/tie/upgrade"
 
 	yaml "gopkg.in/yaml.v2"
@@ -41,7 +39,7 @@ func Config(c *ConfigFile) error {
 		if err != nil {
 			return err
 		}
-		log.Println(service.Name)
+		defer upgrader.Clean()
 		upgraders = append(upgraders, upgrader)
 	}
 
