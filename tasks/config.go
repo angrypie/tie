@@ -19,13 +19,18 @@ type ConfigFile struct {
 }
 
 //Config execut different task based on tie.yml configurations
-func Config(config []byte) (err error) {
+func ConfigFromYaml(config []byte) (err error) {
 
 	c := &ConfigFile{}
 	err = yaml.Unmarshal(config, c)
 	if err != nil {
 		return err
 	}
+
+	return Config(c)
+}
+
+func Config(c *ConfigFile) error {
 
 	var upgraders []*upgrade.Upgrader
 
@@ -50,7 +55,7 @@ func Config(config []byte) (err error) {
 
 	//Clean tie_ folders
 	for _, upgrader := range upgraders {
-		upgrader.Clean()
+		err := upgrader.Clean()
 		if err != nil {
 			return err
 		}
