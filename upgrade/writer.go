@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/afero"
 )
 
+//Write writes packages from buffer to filesystem
 func (upgrader *Upgrader) Write() error {
 	fs := afero.NewOsFs()
 	path := upgrader.Parser.Package.Path
@@ -63,6 +64,7 @@ func (upgrader *Upgrader) Write() error {
 	return nil
 }
 
+//Clean removes files and directories created by Write method
 func (upgrader *Upgrader) Clean() error {
 	fs := afero.NewOsFs()
 	path := upgrader.Parser.Package.Path

@@ -5,7 +5,8 @@ import (
 	"github.com/angrypie/tie/template"
 )
 
-func (upgrade *Upgrader) initServerUpgrade(p *parser.Parser) error {
+//initServerUpgrade writes header templates to RPC client and server buffers
+func (upgrader *Upgrader) initServerUpgrade(p *parser.Parser) error {
 	serverHeader, err := template.MakeServerHeader(p)
 	if err != nil {
 		return err
@@ -16,11 +17,11 @@ func (upgrade *Upgrader) initServerUpgrade(p *parser.Parser) error {
 		return err
 	}
 
-	upgrade.Server.Write(serverHeader)
+	upgrader.Server.Write(serverHeader)
 	if err != nil {
 		return err
 	}
-	upgrade.Client.Write(clientHeader)
+	upgrader.Client.Write(clientHeader)
 	if err != nil {
 		return err
 	}
@@ -28,19 +29,23 @@ func (upgrade *Upgrader) initServerUpgrade(p *parser.Parser) error {
 	return nil
 }
 
-func (upgrade *Upgrader) addServerMain(p *parser.Parser) error {
+//addServerMain writes main function template to RPC server package
+func (upgrader *Upgrader) addServerMain(p *parser.Parser) error {
 	main, err := template.MakeServerMain(p.Package)
 	if err != nil {
 		return err
 	}
-	upgrade.Server.Write(main)
+
+	upgrader.Server.Write(main)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
-func (upgrade *Upgrader) addApiEndpoint(function *parser.Function) error {
+//addServerMain  writes API handler to RPC server and client method to client package
+func (upgrader *Upgrader) addApiEndpoint(function *parser.Function) error {
 	wrapper, err := template.MakeApiWrapper(function)
 	if err != nil {
 		return err
@@ -51,12 +56,12 @@ func (upgrade *Upgrader) addApiEndpoint(function *parser.Function) error {
 		return err
 	}
 
-	_, err = upgrade.Server.Write(wrapper)
+	_, err = upgrader.Server.Write(wrapper)
 	if err != nil {
 		return err
 	}
 
-	_, err = upgrade.Client.Write(client)
+	_, err = upgrader.Client.Write(client)
 	if err != nil {
 		return err
 	}

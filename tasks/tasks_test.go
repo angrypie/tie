@@ -15,9 +15,15 @@ services:
     alias: 'runping'
 `)
 
-	err := Config(config)
+	err := ConfigFromYaml(config)
 	if err != nil {
 		t.Error(err)
 	}
+}
 
+func TestReadDir(t *testing.T) {
+	err := ReadDirAsConfig("../../../../local/pong")
+	if err != nil {
+		t.Error(err)
+	}
 }
