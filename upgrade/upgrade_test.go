@@ -9,21 +9,21 @@ func TestUpgrader(t *testing.T) {
 		}
 	}
 
-	//Upgrade basic example
-	basic := NewUpgrader("github.com/angrypie/tie/example/basic")
+	//Upgrade basit example
+	basic := NewUpgrader("github.com/angrypie/tie/example/custom-types/register")
 	e(basic.Parse())
 	e(basic.Make())
 	e(basic.Write())
 
 	//Upgrade basic/usage example
-	usage := NewUpgrader("github.com/angrypie/tie/example/basic/usage")
+	usage := NewUpgrader("github.com/angrypie/tie/example/custom-types/cli")
 	e(usage.Parse())
-	e(usage.Replace([]string{"github.com/angrypie/tie/example/basic"}))
+	e(usage.Replace([]string{"github.com/angrypie/tie/example/custom-types/register"}))
 	e(usage.Write())
 
 	//Build basic and usage
-	e(usage.Build())
-	e(basic.Build())
+	//e(usage.Build())
+	//e(basic.Build())
 
 	//Clean basic and usage
 	e(usage.Clean())

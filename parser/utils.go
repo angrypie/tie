@@ -3,6 +3,7 @@ package parser
 import (
 	"go/ast"
 	"go/types"
+	"log"
 	"regexp"
 	"strconv"
 )
@@ -12,8 +13,8 @@ func (p *Parser) processFunction(n *ast.FuncDecl) (*Function, bool) {
 	if ok, err := regexp.MatchString("^[A-Z]", name); !ok || err != nil {
 		return nil, false
 	}
-	args := extractArgsList(n.Type.Params)
-	results := extractArgsList(n.Type.Results)
+	args := p.extractArgsList(n.Type.Params)
+	results := p.extractArgsList(n.Type.Results)
 	imports := extractImports(n)
 
 	return &Function{
@@ -25,13 +26,17 @@ func (p *Parser) processFunction(n *ast.FuncDecl) (*Function, bool) {
 	}, true
 }
 
-func extractArgsList(list *ast.FieldList) (args []FunctionArgument) {
+func (p *Parser) extractArgsList(list *ast.FieldList) (args []FunctionArgument) {
 	if list == nil {
 		return args
 	}
 	params := list.List
 	for count, param := range params {
 		currentType := types.ExprString(param.Type)
+		if ast.IsExported(currentType) {
+			currentType = p.Package.Alias + "." + currentType
+		}
+		log.Println(currentType)
 		if len(param.Names) != 0 {
 			for _, name := range param.Names {
 				args = append(args, FunctionArgument{
