@@ -47,7 +47,7 @@ func ReadDirAsConfig(dest string) error {
 				return err
 			}
 
-			//TODO file with .go extension should not be directoies
+			//TODO file with .go extension should not be directories
 			if len(goFiles) == 0 {
 				fmt.Println("Folder ignored:", pkgName)
 				continue
