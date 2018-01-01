@@ -9,6 +9,7 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"log"
 	"os"
 	"strings"
 
@@ -76,6 +77,25 @@ func (p *Parser) GetFunctions() (functions []*Function, err error) {
 		}
 	}
 	return functions, nil
+}
+
+//TODO Refactoring with GetFunctions
+func (p *Parser) GetTypes() (types []*Type, err error) {
+	for _, pkg := range p.pkgs {
+		for _, file := range pkg.Files {
+			ast.Inspect(file, func(node ast.Node) bool {
+				switch n := node.(type) {
+				case *ast.StructType:
+					log.Println("New type")
+					if t, ok := p.processType(n); ok {
+						types = append(types, t)
+					}
+				}
+				return true
+			})
+		}
+	}
+	return types, nil
 }
 
 func (p *Parser) ToFiles() (files []bytes.Buffer) {

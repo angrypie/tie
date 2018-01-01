@@ -45,6 +45,7 @@ func (upgrader *Upgrader) Make() (err error) {
 	if err != nil {
 		return err
 	}
+
 	upgrader.initServerUpgrade(p)
 
 	for _, function := range functions {

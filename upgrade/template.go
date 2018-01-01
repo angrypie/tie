@@ -17,11 +17,22 @@ func (upgrader *Upgrader) initServerUpgrade(p *parser.Parser) error {
 		return err
 	}
 
+	clientTypes, err := template.MakeClientTypes(p)
+	if err != nil {
+		return err
+	}
+
 	upgrader.Server.Write(serverHeader)
 	if err != nil {
 		return err
 	}
+
 	upgrader.Client.Write(clientHeader)
+	if err != nil {
+		return err
+	}
+
+	upgrader.Client.Write(clientTypes)
 	if err != nil {
 		return err
 	}

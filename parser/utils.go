@@ -15,13 +15,11 @@ func (p *Parser) processFunction(n *ast.FuncDecl) (*Function, bool) {
 	}
 	args := p.extractArgsList(n.Type.Params)
 	results := p.extractArgsList(n.Type.Results)
-	imports := extractImports(n)
 
 	return &Function{
 		Name:      name,
 		Arguments: args,
 		Results:   results,
-		Imports:   imports,
 		Package:   p.Package.Alias,
 	}, true
 }
@@ -54,6 +52,13 @@ func (p *Parser) extractArgsList(list *ast.FieldList) (args []FunctionArgument) 
 	return args
 }
 
-func extractImports(decl *ast.FuncDecl) (imports []string) {
-	return imports
+//TODO STUB
+func (p *Parser) processType(n *ast.StructType) (*Type, bool) {
+	return &Type{
+		Name: "NewType",
+		Field: Field{
+			Name: "Ok",
+			Type: "bool",
+		},
+	}, true
 }

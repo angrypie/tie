@@ -12,3 +12,13 @@ type Function struct {
 	Imports   []string
 	Package   string
 }
+
+type Field struct {
+	Name string
+	Type string
+}
+
+type Type struct {
+	Name  string
+	Field Field
+}
