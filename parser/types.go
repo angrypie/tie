@@ -19,6 +19,6 @@ type Field struct {
 }
 
 type Type struct {
-	Name  string
-	Field Field
+	Name   string
+	Fields []Field
 }

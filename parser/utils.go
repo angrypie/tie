@@ -56,9 +56,9 @@ func (p *Parser) extractArgsList(list *ast.FieldList) (args []FunctionArgument) 
 func (p *Parser) processType(n *ast.StructType) (*Type, bool) {
 	return &Type{
 		Name: "NewType",
-		Field: Field{
+		Fields: []Field{Field{
 			Name: "Ok",
 			Type: "bool",
-		},
+		}},
 	}, true
 }
