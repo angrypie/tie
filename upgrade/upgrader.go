@@ -16,11 +16,17 @@ type Upgrader struct {
 	Parser  *parser.Parser
 }
 
+const (
+	ServiceTypeRPC      = "rpc"
+	ServiceTypeHTTP     = "http"
+	ServiceTypeHTTPOnly = "httpOnly"
+)
+
 //NewUpgrader returns initialized Upgrader
-func NewUpgrader(pkgPath string) *Upgrader {
+func NewUpgrader(pkgPath string, serviceType string) *Upgrader {
 	return &Upgrader{
 		Pkg:    pkgPath,
-		Parser: parser.NewParser(),
+		Parser: parser.NewParser(serviceType),
 	}
 }
 

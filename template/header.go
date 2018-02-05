@@ -24,10 +24,20 @@ import (
 	"fmt"
 	"net"
 	"github.com/grandcat/zeroconf"
+
+	//import http packages
+	{{if eq .ServiceType "http"}}
+		"github.com/labstack/echo"
+		"net/http"
+	{{end}}
 )
 
 //Main api resource (for pure functions)
 type Resource_{{.Package.Alias}} struct {}
+
+{{if eq .ServiceType "http"}}
+var echoEndpoints map[string]echo.HandlerFunc
+{{end}}
 
 `
 

@@ -63,18 +63,43 @@ type {{.Name}}Response struct {
 
 func (r *Resource_{{.Package}}) {{.Name}}(request *{{.Name}}Request, response *{{.Name}}Response) (err error) {
 	//1. Call original function
-
-
 	{{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}} := {{.Package}}.{{.Name}}(
 		{{range $k,$v := .Arguments}}request.{{$v.Name}},
 		{{end}}
 	)
+
 	//2. Put results to response struct
 	{{range $k,$v := .Results}}response.{{$v.Name}} = {{$v.Name}}
 	{{end}}
+
 	//3. Return error or nil
 	return err
 }
+
+//Http handlers
+{{if eq .ServiceType "http"}}
+
+func  {{.Name}}HTTPHandler(c echo.Context) (err error) {
+	//1. Bind request params
+	{{if .Arguments}}
+	request := new({{.Name}}Request)
+	{{end}}
+
+	//2. Call original function
+	{{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}} := {{.Package}}.{{.Name}}(
+		{{range $k,$v := .Arguments}}request.{{$v.Name}},
+		{{end}}
+	)
+
+	response := new({{.Name}}Response)
+	//3. Put results to response struct
+	{{range $k,$v := .Results}}response.{{$v.Name}} = {{$v.Name}}
+	{{end}}
+
+	return c.JSON(http.StatusOK, response)
+}
+
+{{end}}
 `
 
 func MakeApiWrapper(fn *parser.Function) ([]byte, error) {

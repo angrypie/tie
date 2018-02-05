@@ -5,8 +5,9 @@ import (
 )
 
 //upgradeWithServices crate new upgrader for pkg and upgrade with services
-func upgradeWithServices(pkg string, services []Service) (*upgrade.Upgrader, error) {
-	upgrader := upgrade.NewUpgrader(pkg)
+func upgradeWithServices(current Service, services []Service) (*upgrade.Upgrader, error) {
+	pkg := current.Name
+	upgrader := upgrade.NewUpgrader(pkg, current.Type)
 
 	imports := make([]string, len(services))
 	for i, service := range services {

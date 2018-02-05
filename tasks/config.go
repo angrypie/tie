@@ -34,8 +34,7 @@ func Config(c *ConfigFile) error {
 
 	//Create upgraders and replace imports
 	for _, service := range c.Services {
-		//TODO rename replace function
-		upgrader, err := upgradeWithServices(service.Name, c.Services)
+		upgrader, err := upgradeWithServices(service, c.Services)
 		if err != nil {
 			return err
 		}

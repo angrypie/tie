@@ -22,7 +22,7 @@ services:
 }
 
 func TestReadDir(t *testing.T) {
-	err := ReadDirAsConfig("../../../../local/pong")
+	err := ReadDirAsConfig("../example/basic")
 	if err != nil {
 		t.Error(err)
 	}

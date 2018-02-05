@@ -6,11 +6,12 @@ type FunctionArgument struct {
 }
 
 type Function struct {
-	Name      string
-	Arguments []FunctionArgument
-	Results   []FunctionArgument
-	Imports   []string
-	Package   string
+	Name        string
+	Arguments   []FunctionArgument
+	Results     []FunctionArgument
+	Imports     []string
+	Package     string
+	ServiceType string
 }
 
 type Field struct {

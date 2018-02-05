@@ -17,10 +17,11 @@ func (p *Parser) processFunction(n *ast.FuncDecl) (*Function, bool) {
 	results := p.extractArgsList(n.Type.Results)
 
 	return &Function{
-		Name:      name,
-		Arguments: args,
-		Results:   results,
-		Package:   p.Package.Alias,
+		Name:        name,
+		Arguments:   args,
+		Results:     results,
+		Package:     p.Package.Alias,
+		ServiceType: p.ServiceType,
 	}, true
 }
 

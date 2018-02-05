@@ -23,16 +23,18 @@ type Package struct {
 }
 
 type Parser struct {
-	fset    *token.FileSet
-	pkgs    map[string]*ast.Package
-	pkg     *ast.Package
-	Package *Package
+	fset        *token.FileSet
+	pkgs        map[string]*ast.Package
+	pkg         *ast.Package
+	Package     *Package
+	ServiceType string
 }
 
-func NewParser() *Parser {
+func NewParser(serviceType string) *Parser {
 	fset := token.NewFileSet()
 	return &Parser{
-		fset: fset,
+		fset:        fset,
+		ServiceType: serviceType,
 	}
 }
 

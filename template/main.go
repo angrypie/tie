@@ -19,7 +19,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
 	defer zconfServer.Shutdown()
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
@@ -30,6 +29,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	e := echo.New()
+	for path, fn := range echoEndpoints {
+		echo.POST(path, fn)
+	}
+
 }
 
 func getPort() (port int, err error) {
