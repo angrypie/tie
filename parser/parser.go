@@ -50,6 +50,7 @@ func (p *Parser) Parse(pkg string) error {
 		return err
 	}
 
+	log.Println(pkg)
 	if len(pkgs) != 1 {
 		return errors.New("Parsed directory should contain one package")
 	}

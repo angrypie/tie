@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"errors"
 	"fmt"
 	"go/build"
 	"path/filepath"
@@ -14,7 +15,7 @@ func ReadConfigFile(dest string) error {
 	fs := afero.NewOsFs()
 	buf, err := afero.ReadFile(fs, dest)
 	if err != nil {
-		return err
+		return errors.New("Cant read file")
 	}
 
 	return ConfigFromYaml(buf)
@@ -39,6 +40,9 @@ func ReadDirAsConfig(dest string) error {
 	for _, file := range files {
 		if file.IsDir() {
 			pkgName := file.Name()
+			if strings.HasPrefix(pkgName, ".") {
+				continue
+			}
 
 			rfs := afero.NewRegexpFs(fs, regexp.MustCompile(`\.go$`))
 
