@@ -62,7 +62,7 @@ func (upgrader *Upgrader) Make() (err error) {
 		}
 	}
 
-	err = upgrader.addServerMain(p)
+	err = upgrader.addServerMain(p, functions)
 	if err != nil {
 		return err
 	}

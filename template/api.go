@@ -83,7 +83,14 @@ func  {{.Name}}HTTPHandler(c echo.Context) (err error) {
 	//1. Bind request params
 	{{if .Arguments}}
 	request := new({{.Name}}Request)
+
+	if err := c.Bind(request); err != nil {
+		return err
+	}
+
+	fmt.Println("Request", request)
 	{{end}}
+
 
 	//2. Call original function
 	{{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}} := {{.Package}}.{{.Name}}(
@@ -95,6 +102,8 @@ func  {{.Name}}HTTPHandler(c echo.Context) (err error) {
 	//3. Put results to response struct
 	{{range $k,$v := .Results}}response.{{$v.Name}} = {{$v.Name}}
 	{{end}}
+
+	fmt.Println("Response", response)
 
 	return c.JSON(http.StatusOK, response)
 }

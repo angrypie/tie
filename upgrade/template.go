@@ -41,8 +41,8 @@ func (upgrader *Upgrader) initServerUpgrade(p *parser.Parser) error {
 }
 
 //addServerMain writes main function template to RPC server package
-func (upgrader *Upgrader) addServerMain(p *parser.Parser) error {
-	main, err := template.MakeServerMain(p.Package)
+func (upgrader *Upgrader) addServerMain(p *parser.Parser, functions []*parser.Function) error {
+	main, err := template.MakeServerMain(p, functions)
 	if err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func (upgrader *Upgrader) addServerMain(p *parser.Parser) error {
 	return nil
 }
 
-//addServerMain  writes API handler to RPC server and client method to client package
+//addApiEndpoint  adds API handler to RPC, or HTTP server and client method to client package
 func (upgrader *Upgrader) addApiEndpoint(function *parser.Function) error {
 	wrapper, err := template.MakeApiWrapper(function)
 	if err != nil {

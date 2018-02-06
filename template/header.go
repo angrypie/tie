@@ -28,6 +28,7 @@ import (
 	//import http packages
 	{{if eq .ServiceType "http"}}
 		"github.com/labstack/echo"
+		"strings"
 		"net/http"
 	{{end}}
 )
