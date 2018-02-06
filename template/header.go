@@ -17,29 +17,28 @@ import (
 	//import original package
 	{{.Package.Alias}} "{{.Package.Name}}/tie_upgraded"
 
+	{{if ne .ServiceType "httpOnly"}}
 	//import RPCX package
 	"github.com/smallnest/rpcx"
+	"github.com/grandcat/zeroconf"
+	{{end}}
 
 	//import util packages
 	"fmt"
 	"net"
-	"github.com/grandcat/zeroconf"
 
 	//import http packages
-	{{if eq .ServiceType "http"}}
-		"github.com/labstack/echo"
-		"strings"
-		"net/http"
+{{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
+	"github.com/labstack/echo"
+	"strings"
+	"net/http"
 	{{end}}
 )
 
+{{if ne .ServiceType "httpOnly"}}
 //Main api resource (for pure functions)
 type Resource_{{.Package.Alias}} struct {}
-
-{{if eq .ServiceType "http"}}
-var echoEndpoints map[string]echo.HandlerFunc
 {{end}}
-
 `
 
 func MakeServerHeader(p *parser.Parser) ([]byte, error) {

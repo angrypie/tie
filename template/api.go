@@ -51,16 +51,29 @@ func {{.Name}}(
 }
 `
 const ApiWrapper = `
+
 type {{.Name}}Request struct {
 	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Type}}
 	{{end}}
 }
 
+
+{{if ne .ServiceType "httpOnly"}}
 type {{.Name}}Response struct {
 	{{range $k,$v := .Results}}{{$v.Name}} {{$v.Type}}
 	{{end}}
 }
+{{end}}
 
+{{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
+type {{.Name}}ResponseHTTP struct {
+	{{range $k,$v := .Results}}{{$v.Name}} {{if eq $v.Type "error"}}string{{else}}{{$v.Type}}{{end}}
+	{{end}}
+}
+{{end}}
+
+{{if ne .ServiceType "httpOnly"}}
+//RPC handlers
 func (r *Resource_{{.Package}}) {{.Name}}(request *{{.Name}}Request, response *{{.Name}}Response) (err error) {
 	//1. Call original function
 	{{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}} := {{.Package}}.{{.Name}}(
@@ -75,9 +88,10 @@ func (r *Resource_{{.Package}}) {{.Name}}(request *{{.Name}}Request, response *{
 	//3. Return error or nil
 	return err
 }
+{{end}}
 
+{{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
 //Http handlers
-{{if eq .ServiceType "http"}}
 
 func  {{.Name}}HTTPHandler(c echo.Context) (err error) {
 	//1. Bind request params
@@ -98,9 +112,9 @@ func  {{.Name}}HTTPHandler(c echo.Context) (err error) {
 		{{end}}
 	)
 
-	response := new({{.Name}}Response)
+	response := new({{.Name}}ResponseHTTP)
 	//3. Put results to response struct
-	{{range $k,$v := .Results}}response.{{$v.Name}} = {{$v.Name}}
+	{{range $k,$v := .Results}}response.{{$v.Name}} = {{if eq $v.Type "error"}}errToString({{$v.Name}}){{else}}{{$v.Name}}{{end}}
 	{{end}}
 
 	fmt.Println("Response", response)

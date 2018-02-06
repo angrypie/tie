@@ -10,17 +10,19 @@ import (
 const ServerMain = `
 func main() {
 
+	{{if .IsInitService}}
 	err := {{.Alias}}.InitService()
 	if err != nil {
 		fmt.Println("Cant InitService", err)
 		return
 	}
+	{{end}}
 
 	{{if ne .ServiceType "httpOnly"}}
 	go startRPCServer()
 	{{end}}
 
-	{{if eq .ServiceType "http"}}
+	{{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
 	go startHTTPServer()
 	{{end}}
 
@@ -28,7 +30,7 @@ func main() {
 	<-make(chan bool)
 }
 
-{{if eq .ServiceType "http"}}
+{{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
 func startHTTPServer() {
 	port, err := getPort()
 	if err != nil {
@@ -39,6 +41,15 @@ func startHTTPServer() {
 	{{range $k,$v := .Functions}}e.POST(strings.ToLower("{{$v.Name}}"), {{$v.Name}}HTTPHandler)
 	{{end}}
 	e.Start(addr)
+}
+{{end}}
+
+{{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
+func errToString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 {{end}}
 
@@ -84,11 +95,18 @@ func getPort() (port int, err error) {
 
 func MakeServerMain(p *parser.Parser, functions []*parser.Function) ([]byte, error) {
 	type helper struct {
-		Alias       string
-		ServiceType string
-		Functions   []*parser.Function
+		Alias         string
+		ServiceType   string
+		Functions     []*parser.Function
+		IsInitService bool
 	}
 	h := helper{Alias: p.Package.Alias, ServiceType: p.ServiceType, Functions: functions}
+
+	for _, fn := range functions {
+		if fn.Name == "InitService" {
+			h.IsInitService = true
+		}
+	}
 
 	var buff bytes.Buffer
 	t := template.Must(
