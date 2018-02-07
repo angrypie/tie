@@ -32,11 +32,11 @@ func main() {
 
 {{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
 func startHTTPServer() {
-	port, err := getPort()
-	if err != nil {
-		panic(err)
-	}
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	//port, err := getPort()
+	//if err != nil {
+		//panic(err)
+	//}
+	addr := fmt.Sprintf("127.0.0.1:%d", 8111)
 	e := echo.New()
 	{{range $k,$v := .Functions}}e.POST(strings.ToLower("{{$v.Name}}"), {{$v.Name}}HTTPHandler)
 	{{end}}
