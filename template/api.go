@@ -53,7 +53,7 @@ func {{.Name}}(
 const ApiWrapper = `
 
 type {{.Name}}Request struct {
-	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Type}}
+	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Type}} {{$v.Name | tolower | printf "json:%q" | tobackquote}}
 	{{end}}
 }
 
@@ -67,7 +67,7 @@ type {{.Name}}Response struct {
 
 {{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
 type {{.Name}}ResponseHTTP struct {
-	{{range $k,$v := .Results}}{{$v.Name}} {{if eq $v.Type "error"}}string{{else}}{{$v.Type}}{{end}}
+	{{range $k,$v := .Results}}{{$v.Name}} {{if eq $v.Type "error"}}string{{else}}{{$v.Type}}{{end}} {{$v.Name | tolower | printf "json:%q" | tobackquote}}
 	{{end}}
 }
 {{end}}
@@ -130,6 +130,14 @@ func MakeApiWrapper(fn *parser.Function) ([]byte, error) {
 		return nil, errors.New("fn must be not nil")
 	}
 
+	funcMap := template.FuncMap{
+		// The name "title" is what the function will be called in the template text.
+		"tolower": strings.ToLower,
+		"tobackquote": func(str string) string {
+			return "`" + str + "`"
+		},
+	}
+
 	for i, _ := range fn.Arguments {
 		fn.Arguments[i].Name = strings.Title(fn.Arguments[i].Name)
 	}
@@ -140,7 +148,7 @@ func MakeApiWrapper(fn *parser.Function) ([]byte, error) {
 
 	var buff bytes.Buffer
 	t := template.Must(
-		template.New("api_wrapper").Parse(ApiWrapper),
+		template.New("api_wrapper").Funcs(funcMap).Parse(ApiWrapper),
 	)
 	err := t.Execute(&buff, fn)
 	if err != nil {
