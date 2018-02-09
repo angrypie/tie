@@ -89,10 +89,17 @@ func (p *Parser) GetTypes() (types []*Type, err error) {
 			ast.Inspect(file, func(node ast.Node) bool {
 				switch n := node.(type) {
 				case *ast.StructType:
-					log.Println("New type")
 					if t, ok := p.processType(n); ok {
 						types = append(types, t)
 					}
+				}
+				switch n := node.(type) {
+				case *ast.GenDecl:
+					if n.Tok != token.TYPE {
+						break
+					}
+					ts := n.Specs[0].(*ast.TypeSpec)
+					log.Println(ts.Name.Name)
 				}
 				return true
 			})
