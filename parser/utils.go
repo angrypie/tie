@@ -25,41 +25,44 @@ func (p *Parser) processFunction(n *ast.FuncDecl) (*Function, bool) {
 	}, true
 }
 
-func (p *Parser) extractArgsList(list *ast.FieldList) (args []FunctionArgument) {
+func (p *Parser) extractArgsList(list *ast.FieldList) (args []Field) {
 	if list == nil {
 		return args
 	}
 	params := list.List
 	for count, param := range params {
 		currentType := types.ExprString(param.Type)
+		var currentPackage string
 		if ast.IsExported(currentType) {
-			currentType = p.Package.Alias + "." + currentType
+			currentType = currentType
+			currentPackage = p.Package.Alias
 		}
-		log.Println(currentType)
 		if len(param.Names) != 0 {
 			for _, name := range param.Names {
-				args = append(args, FunctionArgument{
-					Name: name.Name,
-					Type: currentType,
+				args = append(args, Field{
+					Name:    name.Name,
+					Type:    currentType,
+					Package: currentPackage,
 				})
 			}
 		} else {
-			args = append(args, FunctionArgument{
-				Name: "arg" + strconv.Itoa(count),
-				Type: currentType,
+			args = append(args, Field{
+				Name:    "arg" + strconv.Itoa(count),
+				Type:    currentType,
+				Package: currentPackage,
 			})
 		}
 	}
+	log.Println(args)
 	return args
 }
 
 //TODO STUB
-func (p *Parser) processType(n *ast.StructType) (*Type, bool) {
-	return &Type{
-		Name: "NewType",
-		Fields: []Field{Field{
-			Name: "Ok",
-			Type: "bool",
-		}},
-	}, true
+//name works now fields
+func (p *Parser) processType(st *ast.StructType, ts *ast.TypeSpec) (*Type, bool) {
+	t := &Type{
+		Name:   ts.Name.Name,
+		Fields: p.extractArgsList(st.Fields),
+	}
+	return t, true
 }

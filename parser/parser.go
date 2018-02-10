@@ -9,7 +9,6 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
-	"log"
 	"os"
 	"strings"
 
@@ -52,7 +51,6 @@ func (p *Parser) Parse(pkg string) error {
 		return err
 	}
 
-	log.Println(pkg)
 	if len(pkgs) != 1 {
 		return errors.New("Parsed directory should contain one package")
 	}
@@ -88,18 +86,17 @@ func (p *Parser) GetTypes() (types []*Type, err error) {
 		for _, file := range pkg.Files {
 			ast.Inspect(file, func(node ast.Node) bool {
 				switch n := node.(type) {
-				case *ast.StructType:
-					if t, ok := p.processType(n); ok {
-						types = append(types, t)
-					}
-				}
-				switch n := node.(type) {
 				case *ast.GenDecl:
 					if n.Tok != token.TYPE {
 						break
 					}
 					ts := n.Specs[0].(*ast.TypeSpec)
-					log.Println(ts.Name.Name)
+					st, ok := ts.Type.(*ast.StructType)
+					if ok {
+						if t, ok := p.processType(st, ts); ok {
+							types = append(types, t)
+						}
+					}
 				}
 				return true
 			})

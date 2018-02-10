@@ -1,22 +1,19 @@
 package parser
 
-type FunctionArgument struct {
-	Name string
-	Type string
-}
-
 type Function struct {
 	Name        string
-	Arguments   []FunctionArgument
-	Results     []FunctionArgument
+	Arguments   []Field
+	Results     []Field
 	Imports     []string
 	Package     string
 	ServiceType string
 }
 
+//TODO cange name
 type Field struct {
-	Name string
-	Type string
+	Name    string
+	Type    string
+	Package string
 }
 
 type Type struct {
