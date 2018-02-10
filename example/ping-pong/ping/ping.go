@@ -8,7 +8,7 @@ import (
 func Ping() (ret string, err error) {
 	helth.Check("Ping")
 	if ret, err := pong.Pong(); err != nil {
-		return "ping-" + ret, nil
+		return "ping-" + ret, err
 	} else {
 		return "ping-" + ret, nil
 	}

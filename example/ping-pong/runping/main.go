@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/angrypie/tie/example/ping-pong/ping"
 )
@@ -9,8 +9,8 @@ import (
 func main() {
 	ret, err := ping.Ping()
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		return
 	}
-	log.Println(ret)
+	fmt.Println(ret)
 }

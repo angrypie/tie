@@ -1,13 +1,12 @@
 package register
 
-import "log"
+import "fmt"
 
 type User struct {
-	Name     string
-	Password string
+	Name, Password string
 }
 
 func NewUser(user User) (ok bool, err error) {
-	log.Println("New user registered", user.Name)
+	fmt.Printf("New user %s with password %s", user.Name, user.Password)
 	return true, nil
 }
