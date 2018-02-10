@@ -14,6 +14,7 @@ type Field struct {
 	Name    string
 	Type    string
 	Package string
+	Prefix  string
 }
 
 type Type struct {

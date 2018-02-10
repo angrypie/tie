@@ -3,9 +3,9 @@ package parser
 import (
 	"go/ast"
 	"go/types"
-	"log"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 func (p *Parser) processFunction(n *ast.FuncDecl) (*Function, bool) {
@@ -33,9 +33,14 @@ func (p *Parser) extractArgsList(list *ast.FieldList) (args []Field) {
 	for count, param := range params {
 		currentType := types.ExprString(param.Type)
 		var currentPackage string
-		if ast.IsExported(currentType) {
-			currentType = currentType
+		var typePrefix string
+
+		if ast.IsExported(strings.Trim(currentType, "[]")) {
+			slice := strings.SplitAfter(currentType, "[]")
+			typePrefix = strings.Join(slice[0:len(slice)-1], "")
+			currentType = slice[len(slice)-1]
 			currentPackage = p.Package.Alias
+
 		}
 		if len(param.Names) != 0 {
 			for _, name := range param.Names {
@@ -43,6 +48,7 @@ func (p *Parser) extractArgsList(list *ast.FieldList) (args []Field) {
 					Name:    name.Name,
 					Type:    currentType,
 					Package: currentPackage,
+					Prefix:  typePrefix,
 				})
 			}
 		} else {
@@ -50,10 +56,10 @@ func (p *Parser) extractArgsList(list *ast.FieldList) (args []Field) {
 				Name:    "arg" + strconv.Itoa(count),
 				Type:    currentType,
 				Package: currentPackage,
+				Prefix:  typePrefix,
 			})
 		}
 	}
-	log.Println(args)
 	return args
 }
 

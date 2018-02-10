@@ -56,21 +56,21 @@ func {{.Name}}(
 const ApiWrapper = `
 
 type {{.Name}}Request struct {
-	{{range $k,$v := .Arguments}}{{$v.Name}} {{if $v.Package}}{{$v.Package}}.{{end}}{{$v.Type}} {{$v.Name | tolower | printf "json:%q" | tobackquote}}
+	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Prefix}}{{if $v.Package}}{{$v.Package}}.{{end}}{{$v.Type}} {{$v.Name | tolower | printf "json:%q" | tobackquote}}
 	{{end}}
 }
 
 
 {{if ne .ServiceType "httpOnly"}}
 type {{.Name}}Response struct {
-	{{range $k,$v := .Results}}{{$v.Name}} {{if $v.Package}}{{$v.Package}}.{{end}}{{$v.Type}} {{$v.Name | tolower | printf "json:%q" | tobackquote}}
+	{{range $k,$v := .Results}}{{$v.Name}} {{$v.Prefix}}{{if $v.Package}}{{$v.Package}}.{{end}}{{$v.Type}} {{$v.Name | tolower | printf "json:%q" | tobackquote}}
 	{{end}}
 }
 {{end}}
 
 {{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
 type {{.Name}}ResponseHTTP struct {
-	{{range $k,$v := .Results}}{{$v.Name}} {{if eq $v.Type "error"}}string{{else}}{{if $v.Package}}{{$v.Package}}.{{end}}{{$v.Type}}{{end}} {{$v.Name | tolower | printf "json:%q" | tobackquote}}
+	{{range $k,$v := .Results}}{{$v.Name}} {{if eq $v.Type "error"}}string{{else}}{{$v.Prefix}}{{if $v.Package}}{{$v.Package}}.{{end}}{{$v.Type}}{{end}} {{$v.Name | tolower | printf "json:%q" | tobackquote}}
 	{{end}}
 }
 {{end}}
