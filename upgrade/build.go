@@ -44,7 +44,7 @@ func (upgrader *Upgrader) BuildTo(dist string) error {
 	)
 	fmt.Println(buildComand)
 
-	err = exec.Command("bash", "-c", buildComand).Run()
+	err = exec.Command("sh", "-c", buildComand).Run()
 	if err != nil {
 		return err
 	}
