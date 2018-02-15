@@ -30,11 +30,13 @@ func ReadDirAsConfig(dest string) error {
 		return err
 	}
 
-	config := ConfigFile{}
-
 	destPath, err := filepath.Abs(dest)
 	if err != nil {
 		return err
+	}
+
+	config := ConfigFile{
+		Path: destPath,
 	}
 
 	basePath := strings.TrimPrefix(destPath, build.Default.GOPATH+"/src/")

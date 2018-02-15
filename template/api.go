@@ -163,6 +163,9 @@ func MakeApiWrapper(fn *parser.Function) ([]byte, error) {
 
 //TODO refactor
 func MakeApiClient(fn *parser.Function) ([]byte, error) {
+	if fn.ServiceType == "httpOnly" {
+		return []byte{}, nil
+	}
 	if fn == nil {
 		return nil, errors.New("fn must be not nil")
 	}
