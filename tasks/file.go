@@ -11,14 +11,16 @@ import (
 	"github.com/spf13/afero"
 )
 
+//ReadConfigFile trying to find tie.yml in specified direcotry
 func ReadConfigFile(dest string) error {
 	fs := afero.NewOsFs()
-	buf, err := afero.ReadFile(fs, dest)
+	configPath := fmt.Sprintf("%s/tie.yml", dest)
+	buf, err := afero.ReadFile(fs, configPath)
 	if err != nil {
 		return errors.New("Cant read file")
 	}
 
-	return ConfigFromYaml(buf)
+	return ConfigFromYaml(buf, dest)
 }
 
 func ReadDirAsConfig(dest string) error {

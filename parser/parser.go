@@ -9,6 +9,7 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"log"
 	"os"
 	"strings"
 
@@ -90,13 +91,24 @@ func (p *Parser) GetTypes() (types []*Type, err error) {
 					if n.Tok != token.TYPE {
 						break
 					}
+					//TODO process every spec
 					ts := n.Specs[0].(*ast.TypeSpec)
-					st, ok := ts.Type.(*ast.StructType)
-					if ok {
+
+					if st, ok := ts.Type.(*ast.StructType); ok {
 						if t, ok := p.processType(st, ts); ok {
+							log.Println(1, ts.Name.Name)
 							types = append(types, t)
 						}
 					}
+
+					if st, ok := ts.Type.(*ast.SelectorExpr); ok {
+						log.Println(2, st.Sel.String())
+						fmt.Printf("%+v\n", st)
+						fmt.Printf("%+v\n", st.Sel)
+						fmt.Printf("%+v\n", st.X)
+
+					}
+
 				}
 				return true
 			})

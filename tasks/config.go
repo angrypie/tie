@@ -1,6 +1,9 @@
 package tasks
 
 import (
+	"log"
+	"path/filepath"
+
 	"github.com/angrypie/tie/upgrade"
 
 	yaml "gopkg.in/yaml.v2"
@@ -14,10 +17,11 @@ type Service struct {
 
 type ConfigFile struct {
 	Services []Service `yaml:"services"`
+	Path     string    `yaml:"path"`
 }
 
 //Config execut different task based on tie.yml configurations
-func ConfigFromYaml(config []byte) (err error) {
+func ConfigFromYaml(config []byte, dest string) (err error) {
 
 	c := &ConfigFile{}
 	err = yaml.Unmarshal(config, c)
@@ -25,11 +29,20 @@ func ConfigFromYaml(config []byte) (err error) {
 		return err
 	}
 
+	//Default build path is tie.yml direcotry
+	if c.Path == "" {
+		destPath, err := filepath.Abs(dest)
+		log.Println(dest, destPath)
+		if err != nil {
+			return err
+		}
+		c.Path = destPath
+	}
+
 	return Config(c)
 }
 
 func Config(c *ConfigFile) error {
-
 	var upgraders []*upgrade.Upgrader
 
 	//Create upgraders and replace imports
@@ -44,7 +57,7 @@ func Config(c *ConfigFile) error {
 
 	//Build upgraders
 	for _, upgrader := range upgraders {
-		err := upgrader.Build()
+		err := upgrader.BuildTo(c.Path)
 		if err != nil {
 			return err
 		}

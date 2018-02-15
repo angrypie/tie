@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 
@@ -9,7 +10,7 @@ import (
 
 //Build calls BuildTo method with parent direcotry as argument
 func (upgrader *Upgrader) Build() error {
-	return upgrader.BuildTo("../..")
+	return upgrader.BuildTo(".")
 }
 
 //Build upgraded package binary to specified directory.
@@ -24,18 +25,22 @@ func (upgrader *Upgrader) BuildTo(dist string) error {
 	path := fmt.Sprintf("%s/%s", upgrader.Parser.Package.Path, buildDir)
 
 	fs := afero.NewOsFs()
-	ok, err := afero.Exists(fs, fmt.Sprintf("%s/%s", path, dist+"/"+alias))
+	binName := fmt.Sprintf("%s.run", alias)
+	ok, err := afero.Exists(fs, fmt.Sprintf("%s/%s", path, dist+"/"+binName))
 	if err != nil {
 		return err
 	}
 	if ok {
-		alias += ".run"
+		if ok, _ := afero.IsDir(fs, fmt.Sprintf("%s/%s", path, dist+"/"+binName)); ok {
+			return errors.New("Directory with same name as binary exist")
+		}
 	}
 
 	buildComand := fmt.Sprintf(
-		"cd %s && go build -o %s",
+		"cd %s && go build -o %s/%s",
 		path,
-		dist+"/"+alias,
+		dist,
+		binName,
 	)
 	fmt.Println(buildComand)
 
