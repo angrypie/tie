@@ -36,7 +36,7 @@ func startHTTPServer() {
 	//if err != nil {
 		//panic(err)
 	//}
-	addr := fmt.Sprintf("127.0.0.1:%d", 8111)
+	addr := fmt.Sprintf(":%d", 8111)
 	e := echo.New()
 	{{range $k,$v := .Functions}}e.POST(strings.ToLower("{{$v.Name}}"), {{$v.Name}}HTTPHandler)
 	{{end}}
