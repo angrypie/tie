@@ -26,6 +26,9 @@ import (
 	//import util packages
 	"fmt"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 
 	//import http packages
 {{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}

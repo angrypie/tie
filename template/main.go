@@ -9,11 +9,24 @@ import (
 
 const ServerMain = `
 func main() {
+	var gracefulStop = make(chan os.Signal)
+	signal.Notify(gracefulStop, syscall.SIGTERM)
+	signal.Notify(gracefulStop, syscall.SIGINT)
+	go func() {
+		<-gracefulStop
+		{{if .IsStopService}}
+		err := {{.Alias}}.StopService()
+		if err != nil {
+			fmt.Println("ERR Cant gracefully stop service", err)
+		}
+		{{end}}
+		os.Exit(0)
+	}()
 
 	{{if .IsInitService}}
 	err := {{.Alias}}.InitService()
 	if err != nil {
-		fmt.Println("Cant InitService", err)
+		fmt.Println("ERR Cant InitService", err)
 		return
 	}
 	{{end}}
@@ -99,12 +112,23 @@ func MakeServerMain(p *parser.Parser, functions []*parser.Function) ([]byte, err
 		ServiceType   string
 		Functions     []*parser.Function
 		IsInitService bool
+		IsStopService bool
 	}
-	h := helper{Alias: p.Package.Alias, ServiceType: p.ServiceType, Functions: functions}
+	var fns []*parser.Function
+	for _, fn := range functions {
+		if name := fn.Name; name == "InitService" || name == "StopService" {
+			continue
+		}
+		fns = append(fns, fn)
+	}
+	h := helper{Alias: p.Package.Alias, ServiceType: p.ServiceType, Functions: fns}
 
 	for _, fn := range functions {
 		if fn.Name == "InitService" {
 			h.IsInitService = true
+		}
+		if fn.Name == "StopService" {
+			h.IsStopService = true
 		}
 	}
 

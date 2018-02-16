@@ -55,6 +55,10 @@ func (upgrader *Upgrader) Make() (err error) {
 	upgrader.initServerUpgrade(p)
 
 	for _, function := range functions {
+		//Ignore InitService and StopService methods
+		if name := function.Name; name == "InitService" || name == "StopService" {
+			continue
+		}
 		//Contruct both client API lib and API server
 		err = upgrader.addApiEndpoint(function)
 		if err != nil {
