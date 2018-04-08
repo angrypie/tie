@@ -98,6 +98,9 @@ func (r *Resource_{{.Package}}) {{.Name}}(request *{{.Name}}Request, response *{
 
 func  {{.Name}}HTTPHandler(c echo.Context) (err error) {
 	//1. Bind request params
+	{{if eq (index .Arguments 0).Type "echo.Context"}}
+	{{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}} := {{.Package}}.{{.Name}}(c)
+	{{else}}
 	{{if .Arguments}}
 	request := new({{.Name}}Request)
 
@@ -114,6 +117,7 @@ func  {{.Name}}HTTPHandler(c echo.Context) (err error) {
 		{{range $k,$v := .Arguments}}request.{{$v.Name}},
 		{{end}}
 	)
+	{{end}}
 
 	response := new({{.Name}}ResponseHTTP)
 	//3. Put results to response struct
