@@ -49,7 +49,7 @@ func startHTTPServer() {
 	//if err != nil {
 		//panic(err)
 	//}
-	addr := fmt.Sprintf(":%d", 8111)
+	addr := fmt.Sprintf(":%d", 80)
 	e := echo.New()
 	{{range $k,$v := .Functions}}e.POST(strings.ToLower("{{$v.Name}}"), {{$v.Name}}HTTPHandler)
 	{{end}}
