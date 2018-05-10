@@ -32,12 +32,14 @@ func {{.Name}}(
 	if Err != nil {
 		return {{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}}
 	}
-	s := &rpcx.DirectClientSelector{
-		Network: "tcp",
-		Address: fmt.Sprintf("127.0.0.1:%d", port),
-		DialTimeout: 2 * time.Second,
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+
+	client := rpcx.NewClient(rpcx.DefaultOption)
+	Err = client.Connect("tcp", addr)
+	if Err != nil {
+		return {{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}}
 	}
-	client := rpcx.NewClient(s)
+	defer client.Close()
 
 	request := &{{.Name}}Request{
 		{{range $k,$v := .Arguments}}{{$v.Name}},
@@ -46,7 +48,7 @@ func {{.Name}}(
 
 	var response {{.Name}}Response
 
-	client.Call(context.Background(), "Resource_{{.Package}}.{{.Name}}", request, &response)
+	client.Call(context.Background(), "Resource_{{.Package}}", "{{.Name}}", request, &response)
 	client.Close()
 	return {{range $k,$v := .Results}}{{if $k}},{{end}} response.{{$v.Name}}{{end}}
 }
@@ -77,7 +79,7 @@ type {{.Name}}ResponseHTTP struct {
 
 {{if ne .ServiceType "httpOnly"}}
 //RPC handlers
-func (r *Resource_{{.Package}}) {{.Name}}(request *{{.Name}}Request, response *{{.Name}}Response) (err error) {
+func (r *Resource_{{.Package}}) {{.Name}}(ctx context.Context, request *{{.Name}}Request, response *{{.Name}}Response) (err error) {
 	//1. Call original function
 	{{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}} := {{.Package}}.{{.Name}}(
 		{{range $k,$v := .Arguments}}request.{{$v.Name}},

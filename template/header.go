@@ -19,7 +19,7 @@ import (
 
 	{{if ne .ServiceType "httpOnly"}}
 	//import RPCX package
-	"github.com/smallnest/rpcx"
+	rpcx "github.com/smallnest/rpcx/server"
 	"github.com/grandcat/zeroconf"
 	{{end}}
 
@@ -29,6 +29,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"context"
 
 	//import http packages
 {{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
@@ -65,7 +66,7 @@ const ClientHeader = `
 package {{.Package.Alias}}_api
 import (
 	//import RPCX package
-	"github.com/smallnest/rpcx"
+	rpcx "github.com/smallnest/rpcx/client"
 	"context"
 	"time"
 	"fmt"

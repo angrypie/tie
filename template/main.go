@@ -82,7 +82,7 @@ func startRPCServer() {
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	server := rpcx.NewServer()
-	server.RegisterName("Resource_{{.Alias}}", new(Resource_{{.Alias}}))
+	server.RegisterName("Resource_{{.Alias}}", new(Resource_{{.Alias}}), "")
 	fmt.Println("Start on port:", port)
 	err = server.Serve("tcp", addr)
 	if err != nil {
