@@ -11,6 +11,8 @@ import (
 
 func main() {
 	app := cli.NewApp()
+	app.Name = "Creating microservices on top of golang packages (package as a service)"
+	app.UsageText = "Use inside directory with tiel.yml or let tie decide automaticaly"
 
 	app.Action = func(c *cli.Context) error {
 		//TODO try to find config or try to use directory schema as config
