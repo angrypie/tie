@@ -100,17 +100,16 @@ func (r *Resource_{{.Package}}) {{.Name}}(ctx context.Context, request *{{.Name}
 
 func  {{.Name}}HTTPHandler(c echo.Context) (err error) {
 	//1. Bind request params
-	{{if eq (index .Arguments 0).Type "echo.Context"}}
-	{{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}} := {{.Package}}.{{.Name}}(c)
-	{{else}}
-	{{if .Arguments}}
-	request := new({{.Name}}Request)
+	{{if and .Arguments (eq (index .Arguments 0).Type "echo.Context")}}
+		{{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}} := {{.Package}}.{{.Name}}(c)
+	{{end}}
 
-	if err := c.Bind(request); err != nil {
-		return err
-	}
-
-	fmt.Println("Request", request)
+	{{if and .Arguments (ne (index .Arguments 0).Type "echo.Context")}}
+		request := new({{.Name}}Request)
+		if err := c.Bind(request); err != nil {
+			return err
+		}
+		fmt.Println("Request", request)
 	{{end}}
 
 
