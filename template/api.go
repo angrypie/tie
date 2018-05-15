@@ -56,7 +56,6 @@ func {{.Name}}(
 
 //TODO add package prefix for fields in struct
 const ApiWrapper = `
-
 type {{.Name}}Request struct {
 	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Prefix}}{{if $v.Package}}{{$v.Package}}.{{end}}{{$v.Type}} {{$v.Name | tolower | printf "json:%q" | tobackquote}}
 	{{end}}
@@ -100,16 +99,16 @@ func (r *Resource_{{.Package}}) {{.Name}}(ctx context.Context, request *{{.Name}
 
 func  {{.Name}}HTTPHandler(c echo.Context) (err error) {
 	//1. Bind request params
-	{{if and .Arguments (eq (index .Arguments 0).Type "echo.Context")}}
-		{{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}} := {{.Package}}.{{.Name}}(c)
-	{{end}}
-
-	{{if and .Arguments (ne (index .Arguments 0).Type "echo.Context")}}
-		request := new({{.Name}}Request)
-		if err := c.Bind(request); err != nil {
-			return err
-		}
-		fmt.Println("Request", request)
+	{{if .Arguments }}
+		{{if (eq (index .Arguments 0).Type "echo.Context")}}
+			{{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}} := {{.Package}}.{{.Name}}(c)
+		{{else}}
+			request := new({{.Name}}Request)
+			if err := c.Bind(request); err != nil {
+				return err
+			}
+			fmt.Println("Request", request)
+		{{end}}
 	{{end}}
 
 
@@ -118,7 +117,6 @@ func  {{.Name}}HTTPHandler(c echo.Context) (err error) {
 		{{range $k,$v := .Arguments}}request.{{$v.Name}},
 		{{end}}
 	)
-	{{end}}
 
 	response := new({{.Name}}ResponseHTTP)
 	//3. Put results to response struct

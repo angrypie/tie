@@ -5,28 +5,25 @@ import (
 	"errors"
 
 	"github.com/angrypie/tie/parser"
+	"github.com/angrypie/tie/types"
 )
 
 //Upgrader hold parsed package and uses templates to contruct new, upgraded, packages.
 type Upgrader struct {
-	Client  bytes.Buffer
-	Server  bytes.Buffer
-	Service bytes.Buffer
-	Pkg     string
-	Parser  *parser.Parser
+	Client        bytes.Buffer
+	Server        bytes.Buffer
+	Service       bytes.Buffer
+	Pkg           string
+	Parser        *parser.Parser
+	ServiceConfig *types.Service
 }
 
-const (
-	ServiceTypeRPC      = "rpc"
-	ServiceTypeHTTP     = "http"
-	ServiceTypeHTTPOnly = "httpOnly"
-)
-
 //NewUpgrader returns initialized Upgrader
-func NewUpgrader(pkgPath string, serviceType string) *Upgrader {
+func NewUpgrader(service types.Service) *Upgrader {
 	return &Upgrader{
-		Pkg:    pkgPath,
-		Parser: parser.NewParser(serviceType),
+		Pkg:           service.Name,
+		ServiceConfig: &service,
+		Parser:        parser.NewParser(&service),
 	}
 }
 
@@ -52,7 +49,10 @@ func (upgrader *Upgrader) Make() (err error) {
 		return err
 	}
 
-	upgrader.initServerUpgrade(p)
+	err = upgrader.initServerUpgrade(p)
+	if err != nil {
+		return err
+	}
 
 	for _, function := range functions {
 		//Ignore InitService and StopService methods

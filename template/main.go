@@ -45,11 +45,16 @@ func main() {
 
 {{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
 func startHTTPServer() {
-	//port, err := getPort()
-	//if err != nil {
-		//panic(err)
-	//}
-	addr := fmt.Sprintf(":%d", 80)
+	{{if eq .Port ""}}
+		port, err := getPort()
+		if err != nil {
+			panic(err)
+		}
+	{{else}}
+		port := {{.Port}}
+	{{end}}
+
+	addr := fmt.Sprintf(":%d", port)
 	e := echo.New()
 	{{range $k,$v := .Functions}}e.POST(strings.ToLower("{{$v.Name}}"), {{$v.Name}}HTTPHandler)
 	{{end}}
@@ -68,11 +73,6 @@ func errToString(err error) string {
 
 {{if ne .ServiceType "httpOnly"}}
 func startRPCServer() {
-	port, err := getPort()
-	if err != nil {
-		panic(err)
-	}
-
 	fmt.Println("Resource_{{.Alias}}")
 	zconfServer, err := zeroconf.Register("GoZeroconf", "Resource_{{.Alias}}", "local.", port, []string{"txtv=0", "lo=1", "la=2"}, nil)
 	if err != nil {
@@ -113,6 +113,7 @@ func MakeServerMain(p *parser.Parser, functions []*parser.Function) ([]byte, err
 		Functions     []*parser.Function
 		IsInitService bool
 		IsStopService bool
+		Port          string
 	}
 	var fns []*parser.Function
 	for _, fn := range functions {
@@ -121,7 +122,7 @@ func MakeServerMain(p *parser.Parser, functions []*parser.Function) ([]byte, err
 		}
 		fns = append(fns, fn)
 	}
-	h := helper{Alias: p.Package.Alias, ServiceType: p.ServiceType, Functions: fns}
+	h := helper{Alias: p.Package.Alias, ServiceType: p.Service.Type, Functions: fns, Port: p.Service.Port}
 
 	for _, fn := range functions {
 		if fn.Name == "InitService" {

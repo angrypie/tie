@@ -21,7 +21,7 @@ func (p *Parser) processFunction(n *ast.FuncDecl) (*Function, bool) {
 		Arguments:   args,
 		Results:     results,
 		Package:     p.Package.Alias,
-		ServiceType: p.ServiceType,
+		ServiceType: p.Service.Type,
 	}, true
 }
 

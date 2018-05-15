@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 
+	tieTypes "github.com/angrypie/tie/types"
 	"golang.org/x/tools/go/ast/astutil"
 )
 
@@ -23,18 +24,18 @@ type Package struct {
 }
 
 type Parser struct {
-	fset        *token.FileSet
-	pkgs        map[string]*ast.Package
-	pkg         *ast.Package
-	Package     *Package
-	ServiceType string
+	fset    *token.FileSet
+	pkgs    map[string]*ast.Package
+	pkg     *ast.Package
+	Package *Package
+	Service *tieTypes.Service
 }
 
-func NewParser(serviceType string) *Parser {
+func NewParser(service *tieTypes.Service) *Parser {
 	fset := token.NewFileSet()
 	return &Parser{
-		fset:        fset,
-		ServiceType: serviceType,
+		fset:    fset,
+		Service: service,
 	}
 }
 

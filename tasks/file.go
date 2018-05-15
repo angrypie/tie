@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/angrypie/tie/types"
 	"github.com/spf13/afero"
 )
 
@@ -35,7 +36,7 @@ func ReadDirAsConfig(dest string) error {
 		return err
 	}
 
-	config := ConfigFile{
+	config := types.ConfigFile{
 		Path: destPath,
 	}
 
@@ -61,7 +62,7 @@ func ReadDirAsConfig(dest string) error {
 				continue
 			}
 
-			config.Services = append(config.Services, Service{
+			config.Services = append(config.Services, types.Service{
 				Name: fmt.Sprintf("%s/%s", basePath, pkgName),
 			})
 			fmt.Println("Package added to config:", pkgName)

@@ -15,7 +15,6 @@ func main() {
 	app.UsageText = "Use inside directory with tiel.yml or let tie decide automaticaly"
 
 	app.Action = func(c *cli.Context) error {
-		//TODO try to find config or try to use directory schema as config
 		err := tasks.ReadConfigFile(".")
 		if err != nil {
 			if err.Error() != "Cant read file" {
