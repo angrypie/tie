@@ -20,7 +20,7 @@ func (p *Parser) processFunction(n *ast.FuncDecl) (*Function, bool) {
 		Name:        name,
 		Arguments:   args,
 		Results:     results,
-		Package:     p.Package.Alias,
+		Package:     p.Service.Alias,
 		ServiceType: p.Service.Type,
 	}, true
 }
@@ -39,7 +39,7 @@ func (p *Parser) extractArgsList(list *ast.FieldList) (args []Field) {
 			slice := strings.SplitAfter(currentType, "[]")
 			typePrefix = strings.Join(slice[0:len(slice)-1], "")
 			currentType = slice[len(slice)-1]
-			currentPackage = p.Package.Alias
+			currentPackage = p.Service.Alias
 
 		}
 		if len(param.Names) != 0 {

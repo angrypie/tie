@@ -41,7 +41,7 @@ func Config(c *types.ConfigFile) error {
 		if err != nil {
 			return err
 		}
-		//defer upgrader.Clean()
+		defer upgrader.Clean()
 		upgraders = append(upgraders, upgrader)
 	}
 
@@ -52,14 +52,6 @@ func Config(c *types.ConfigFile) error {
 			return err
 		}
 	}
-
-	//Clean tie_ folders
-	//for _, upgrader := range upgraders {
-	//err := upgrader.Clean()
-	//if err != nil {
-	//return err
-	//}
-	//}
 
 	return nil
 }

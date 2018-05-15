@@ -10,12 +10,12 @@ import (
 const ServerHeader = `
 //Server api for package: {{.Package.Name}}
 //absolute path: {{.Package.Path}}
-//package alias: {{.Package.Alias}}
+//package alias: {{.Service.Alias}}
 
 package main
 import (
 	//import original package
-	{{.Package.Alias}} "{{.Package.Name}}/tie_upgraded"
+	{{.Service.Alias}} "{{.Package.Name}}/tie_upgraded"
 
 	{{if ne .Service.Type "httpOnly"}}
 	//import RPCX package
@@ -41,7 +41,7 @@ import (
 
 {{if ne .Service.Type "httpOnly"}}
 //Main api resource (for pure functions)
-type Resource_{{.Package.Alias}} struct {}
+type Resource_{{.Service.Alias}} struct {}
 {{end}}
 `
 
@@ -60,9 +60,9 @@ func MakeServerHeader(p *parser.Parser) ([]byte, error) {
 const ClientHeader = `
 //Client api for package: {{.Package.Name}}
 //absolute path: {{.Package.Path}}
-//package alias: {{.Package.Alias}}
+//package alias: {{.Service.Alias}}
 
-package {{.Package.Alias}}_api
+package {{.Service.Alias}}_api
 import (
 	//import RPCX package
 	rpcx "github.com/smallnest/rpcx/client"

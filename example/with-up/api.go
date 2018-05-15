@@ -13,12 +13,13 @@ import (
 var pets = make(map[string]struct{})
 
 // use JSON logging when run by Up (including `up start`).
-func InitService() {
+func InitService() (err error) {
 	if os.Getenv("UP_STAGE") == "" {
 		log.SetHandler(text.Default)
 	} else {
 		log.SetHandler(json.Default)
 	}
+	return nil
 }
 
 // curl http://localhost:3000/

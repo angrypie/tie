@@ -122,7 +122,7 @@ func MakeServerMain(p *parser.Parser, functions []*parser.Function) ([]byte, err
 		}
 		fns = append(fns, fn)
 	}
-	h := helper{Alias: p.Package.Alias, ServiceType: p.Service.Type, Functions: fns, Port: p.Service.Port}
+	h := helper{Alias: p.Service.Alias, ServiceType: p.Service.Type, Functions: fns, Port: p.Service.Port}
 
 	for _, fn := range functions {
 		if fn.Name == "InitService" {

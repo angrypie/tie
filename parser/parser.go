@@ -41,6 +41,9 @@ func NewParser(service *tieTypes.Service) *Parser {
 
 func (p *Parser) Parse(pkg string) error {
 	p.Package = NewPackage(pkg)
+	if p.Service.Alias == "" {
+		p.Service.Alias = p.Package.Alias
+	}
 	pkgs, err := parser.ParseDir(
 		p.fset, p.Package.Path, func(info os.FileInfo) bool {
 			name := info.Name()
