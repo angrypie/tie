@@ -15,7 +15,7 @@ services:
     alias: 'runping'
 `)
 
-	err := ConfigFromYaml(config)
+	err := ConfigFromYaml(config, ".")
 	if err != nil {
 		t.Error(err)
 	}
@@ -23,6 +23,11 @@ services:
 
 func TestReadDir(t *testing.T) {
 	err := ReadDirAsConfig("../example/basic")
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = CleanBinary("../example/basic")
 	if err != nil {
 		t.Error(err)
 	}

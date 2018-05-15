@@ -73,6 +73,10 @@ func errToString(err error) string {
 
 {{if ne .ServiceType "httpOnly"}}
 func startRPCServer() {
+	port, err := getPort()
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println("Resource_{{.Alias}}")
 	zconfServer, err := zeroconf.Register("GoZeroconf", "Resource_{{.Alias}}", "local.", port, []string{"txtv=0", "lo=1", "la=2"}, nil)
 	if err != nil {
