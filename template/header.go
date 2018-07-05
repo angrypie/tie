@@ -34,6 +34,7 @@ import (
 	//import http packages
 {{if or (eq .Service.Type "http") (eq .Service.Type "httpOnly")}}
 	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 	"strings"
 	"net/http"
 	{{end}}

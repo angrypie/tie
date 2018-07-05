@@ -56,6 +56,10 @@ func startHTTPServer() {
 
 	addr := fmt.Sprintf(":%d", port)
 	e := echo.New()
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowMethods:     []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
+		AllowOrigins:     []string{"*"},
+	}))
 	{{range $k,$v := .Functions}}e.POST(strings.ToLower("{{$v.Name}}"), {{$v.Name}}HTTPHandler)
 	{{end}}
 	e.Start(addr)
