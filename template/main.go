@@ -60,6 +60,7 @@ func startHTTPServer() {
 		AllowMethods:     []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
 		AllowOrigins:     []string{"*"},
 	}))
+	{{ generateEchoAuth }}
 	{{range $k,$v := .Functions}}e.POST(strings.ToLower("{{$v.Name}}"), {{$v.Name}}HTTPHandler)
 	{{end}}
 	e.Start(addr)
@@ -130,8 +131,16 @@ func MakeServerMain(p *parser.Parser, functions []*parser.Function) ([]byte, err
 		}
 		fns = append(fns, fn)
 	}
+	//Set helper fields
 	h := helper{Alias: p.Service.Alias, ServiceType: p.Service.Type, Functions: fns, Port: p.Service.Port}
 
+	funcMap := template.FuncMap{
+		"generateEchoAuth": func() string {
+			return makeEchoAuth(p.Service.Auth)
+		},
+	}
+
+	//Set InitService and StopService flags
 	for _, fn := range functions {
 		if fn.Name == "InitService" {
 			h.IsInitService = true
@@ -143,7 +152,7 @@ func MakeServerMain(p *parser.Parser, functions []*parser.Function) ([]byte, err
 
 	var buff bytes.Buffer
 	t := template.Must(
-		template.New("server_main").Parse(ServerMain),
+		template.New("server_main").Funcs(funcMap).Parse(ServerMain),
 	)
 	err := t.Execute(&buff, h)
 	if err != nil {
@@ -151,4 +160,21 @@ func MakeServerMain(p *parser.Parser, functions []*parser.Function) ([]byte, err
 	}
 
 	return buff.Bytes(), nil
+}
+
+func makeEchoAuth(key string) string {
+	if key == "" {
+		return ""
+	}
+	const templ = `
+e.Use(middleware.KeyAuth(func(key string, c echo.Context) (bool, error) {
+  return key == {{.}}, nil
+}))
+`
+	var buff bytes.Buffer
+	template.Must(
+		template.New("templateEchoAuth").Parse(templ),
+	).Execute(&buff, "key")
+	return buff.String()
+
 }

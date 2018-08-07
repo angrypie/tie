@@ -5,6 +5,7 @@ type Service struct {
 	Alias string `yaml:"alias"`
 	Type  string `yaml:"type"`
 	Port  string `yaml:"port"`
+	Auth  string `yaml:"auth"`
 }
 
 type ConfigFile struct {
