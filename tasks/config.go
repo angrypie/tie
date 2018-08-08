@@ -1,17 +1,83 @@
 package tasks
 
 import (
+	"errors"
+	"fmt"
+	"go/build"
 	"log"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/angrypie/tie/types"
 	"github.com/angrypie/tie/upgrade"
+	"github.com/spf13/afero"
 
 	yaml "gopkg.in/yaml.v2"
 )
 
+//ReadConfigFile trying to find tie.yml in specified direcotry
+func ReadConfigFile(dest string) error {
+	fs := afero.NewOsFs()
+	configPath := fmt.Sprintf("%s/tie.yml", dest)
+	buf, err := afero.ReadFile(fs, configPath)
+	if err != nil {
+		return errors.New("Cant read file")
+	}
+
+	return configFromYaml(buf, dest)
+}
+
+func ReadDirAsConfig(dest string) error {
+	fs := afero.NewOsFs()
+	files, err := afero.ReadDir(fs, dest)
+	if err != nil {
+		return err
+	}
+
+	destPath, err := filepath.Abs(dest)
+	if err != nil {
+		return err
+	}
+
+	config := types.ConfigFile{
+		Path: destPath,
+	}
+
+	basePath := strings.TrimPrefix(destPath, build.Default.GOPATH+"/src/")
+
+	for _, file := range files {
+		if file.IsDir() {
+			pkgName := file.Name()
+			if strings.HasPrefix(pkgName, ".") {
+				continue
+			}
+
+			rfs := afero.NewRegexpFs(fs, regexp.MustCompile(`\.go$`))
+
+			goFiles, err := afero.ReadDir(rfs, fmt.Sprintf("%s/%s", dest, pkgName))
+			if err != nil {
+				return err
+			}
+
+			//TODO file with .go extension should not be directories
+			if len(goFiles) == 0 {
+				fmt.Println("Folder ignored:", pkgName)
+				continue
+			}
+
+			config.Services = append(config.Services, types.Service{
+				Name: fmt.Sprintf("%s/%s", basePath, pkgName),
+			})
+			fmt.Println("Package added to config:", pkgName)
+		}
+	}
+
+	return withConfigFile(&config)
+}
+
 //Config execut different task based on tie.yml configurations
-func ConfigFromYaml(config []byte, dest string) (err error) {
+func configFromYaml(config []byte, dest string) (err error) {
 
 	c := &types.ConfigFile{}
 	err = yaml.Unmarshal(config, c)
@@ -29,10 +95,10 @@ func ConfigFromYaml(config []byte, dest string) (err error) {
 		c.Path = destPath
 	}
 
-	return Config(c)
+	return withConfigFile(c)
 }
 
-func Config(c *types.ConfigFile) error {
+func withConfigFile(c *types.ConfigFile) error {
 	var upgraders []*upgrade.Upgrader
 
 	//Create upgraders and replace imports
@@ -54,4 +120,21 @@ func Config(c *types.ConfigFile) error {
 	}
 
 	return nil
+}
+
+//upgradeWithServices crate new upgrader for pkg and upgrade with services
+func upgradeWithServices(current types.Service, services []types.Service) (*upgrade.Upgrader, error) {
+	upgrader := upgrade.NewUpgrader(current)
+
+	imports := make([]string, len(services))
+	for i, service := range services {
+		imports[i] = service.Name
+	}
+
+	err := upgrader.Upgrade(imports)
+	if err != nil {
+		return nil, err
+	}
+
+	return upgrader, nil
 }

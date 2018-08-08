@@ -15,7 +15,7 @@ services:
     alias: 'runping'
 `)
 
-	err := ConfigFromYaml(config, ".")
+	err := configFromYaml(config, ".")
 	if err != nil {
 		t.Error(err)
 	}
