@@ -1,17 +1,21 @@
 package tasks
 
 import (
-	"fmt"
-	"regexp"
-
 	"github.com/spf13/afero"
 )
 
 func CleanBinary(dest string) error {
-	fs := afero.NewRegexpFs(afero.NewOsFs(), regexp.MustCompile("*.run"))
-	err := fs.RemoveAll(fmt.Sprintf("%s/.*", dest))
+	fs := afero.NewOsFs()
+	files, err := afero.Glob(fs, "*.run")
 	if err != nil {
 		return err
+	}
+
+	for _, file := range files {
+		err := fs.Remove(file)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
