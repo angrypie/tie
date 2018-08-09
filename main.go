@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/angrypie/tie/tasks"
 	"github.com/urfave/cli"
@@ -20,6 +21,11 @@ func main() {
 			Name:   "clean",
 			Usage:  "Clean binaries",
 			Action: cleanCommand,
+		},
+		{
+			Name:   "install-deps",
+			Usage:  "Insall Tie dependencies",
+			Action: installGoDependencies,
 		},
 	}
 
@@ -44,6 +50,23 @@ func defaultCommand(c *cli.Context) error {
 }
 
 func cleanCommand(c *cli.Context) error {
-	err := tasks.CleanBinary(".")
-	return err
+	removed, err := tasks.CleanBinary(".")
+	if err != nil {
+		return err
+	}
+	if length := len(removed); length != 0 {
+		fmt.Printf("Deleted %d files: %s\n", len(removed), strings.Join(removed, ", "))
+	} else {
+		fmt.Printf("Nothing to clean\n")
+	}
+	return nil
+}
+
+func installGoDependencies(c *cli.Context) error {
+	err := tasks.InstallGoDependencies()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Dependencies installed\n")
+	return nil
 }
