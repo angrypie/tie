@@ -11,21 +11,21 @@ import (
 
 const ApiClient = `
 type {{.Name}}Request struct {
-	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Type}} {{$v.Name | tolower | printf "json:%q" | tobackquote}}
+	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Prefix}}{{if $v.Package}}{{$v.Package}}.{{end}}{{$v.Type}} {{$v.Name | tolower | printf "json:%q" | tobackquote}}
 	{{end}}
 }
 
 //lolo
 type {{.Name}}Response struct {
-	{{range $k,$v := .Results}}{{$v.Name}} {{$v.Type}} {{$v.Name | tolower | printf "json:%q" | tobackquote}}
+	{{range $k,$v := .Results}}{{$v.Name}} {{$v.Prefix}}{{if $v.Package}}{{$v.Package}}.{{end}}{{$v.Type}} {{$v.Name | tolower | printf "json:%q" | tobackquote}}
 	{{end}}
 }
 
 func {{.Name}}(
-	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Type}},
+	{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Prefix}}{{if $v.Package}}{{$v.Package}}.{{end}}{{$v.Type}},
 	{{end}}
 ) (
-	{{range $k,$v := .Results}}{{$v.Name}} {{$v.Type}},
+	{{range $k,$v := .Results}}{{$v.Name}} {{$v.Prefix}}{{if $v.Package}}{{$v.Package}}.{{end}}{{$v.Type}},
 	{{end}}
 ) {
 	port, Err := getLocalService("Resource_{{.Package}}")

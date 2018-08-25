@@ -65,6 +65,9 @@ const ClientHeader = `
 
 package {{.Service.Alias}}_api
 import (
+	//TODO replace with imported types
+	//import original package
+	{{.Service.Alias}} "{{.Package.Name}}/tie_upgraded"
 	//import RPCX package
 	rpcx "github.com/smallnest/rpcx/client"
 	"context"
