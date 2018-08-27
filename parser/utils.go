@@ -35,8 +35,11 @@ func (p *Parser) extractArgsList(list *ast.FieldList) (args []Field) {
 		var currentPackage string
 		var typePrefix string
 
-		if ast.IsExported(strings.Trim(currentType, "[]")) {
+		if ast.IsExported(strings.Trim(currentType, "[]")) || ast.IsExported(strings.Trim(currentType, "*")) {
 			slice := strings.SplitAfter(currentType, "[]")
+			if len(slice) == 1 {
+				slice = strings.SplitAfter(currentType, "*")
+			}
 			typePrefix = strings.Join(slice[0:len(slice)-1], "")
 			currentType = slice[len(slice)-1]
 			currentPackage = p.Service.Alias

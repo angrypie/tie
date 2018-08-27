@@ -55,8 +55,8 @@ func (upgrader *Upgrader) Make() (err error) {
 	}
 
 	for _, function := range functions {
-		//Ignore InitService and StopService methods
-		if name := function.Name; name == "InitService" || name == "StopService" {
+		//Ignore  StopService methods
+		if name := function.Name; name == "StopService" {
 			continue
 		}
 		//Contruct both client API lib and API server
