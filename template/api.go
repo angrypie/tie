@@ -107,7 +107,6 @@ func  {{.Name}}HTTPHandler(c echo.Context) (err error) {
 			if err := c.Bind(request); err != nil {
 				return err
 			}
-			fmt.Println("Request", request)
 		{{end}}
 	{{end}}
 
@@ -122,8 +121,6 @@ func  {{.Name}}HTTPHandler(c echo.Context) (err error) {
 	//3. Put results to response struct
 	{{range $k,$v := .Results}}response.{{$v.Name}} = {{if eq $v.Type "error"}}errToString({{$v.Name}}){{else}}{{$v.Name}}{{end}}
 	{{end}}
-
-	fmt.Println("Response", response)
 
 	return c.JSON(http.StatusOK, response)
 }
