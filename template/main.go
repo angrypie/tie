@@ -32,6 +32,8 @@ func main() {
 	{{end}}
 
 	{{if ne .ServiceType "httpOnly"}}
+	//Use context to avoid errors when it's unsused
+	_ = context.TODO()
 	go startRPCServer()
 	{{end}}
 
