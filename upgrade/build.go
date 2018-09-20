@@ -3,6 +3,7 @@ package upgrade
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os/exec"
 
 	"github.com/spf13/afero"
@@ -44,8 +45,9 @@ func (upgrader *Upgrader) BuildTo(dist string) error {
 	)
 	fmt.Println(buildComand)
 
-	err = exec.Command("sh", "-c", buildComand).Run()
+	output, err := exec.Command("sh", "-c", buildComand).CombinedOutput()
 	if err != nil {
+		log.Println(string(output))
 		return err
 	}
 	return nil
