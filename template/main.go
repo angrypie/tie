@@ -170,13 +170,13 @@ func makeEchoAuth(key string) string {
 	}
 	const templ = `
 e.Use(middleware.KeyAuth(func(key string, c echo.Context) (bool, error) {
-  return key == {{.}}, nil
+  return key == "{{.}}", nil
 }))
 `
 	var buff bytes.Buffer
 	template.Must(
 		template.New("templateEchoAuth").Parse(templ),
-	).Execute(&buff, "key")
+	).Execute(&buff, key)
 	return buff.String()
 
 }

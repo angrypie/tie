@@ -56,9 +56,9 @@ func (upgrader *Upgrader) Make() (err error) {
 
 	for _, function := range functions {
 		//Ignore StopService methods
-		if name := function.Name; name == "StopService" {
-			continue
-		}
+		//if name := function.Name; name == "StopService" {
+		//continue
+		//}
 		//Contruct both client API lib and API server
 		err = upgrader.addApiEndpoint(function)
 		if err != nil {
