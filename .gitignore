@@ -1,1 +1,4 @@
 **/*.run
+**/*.tie_client
+**/*.tie_upgrader
+**/*.tie_server
