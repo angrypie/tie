@@ -6,38 +6,21 @@ import (
 	"github.com/spf13/afero"
 )
 
-//Write writes packages from buffer to filesystem
-func (upgrader *Upgrader) Write() error {
+//writeHelper creates directory for package and write files.
+func writeHelper(path, dir string, files ...[]byte) error {
 	fs := afero.NewOsFs()
-	path := upgrader.Parser.Package.Path
+	fullPath := fmt.Sprintf("%s/%s", path, dir)
 
-	//#1
-	err := fs.MkdirAll(path+"/tie_server", 0755)
-	if err != nil {
-		return err
-	}
-	err = afero.WriteFile(
-		fs,
-		path+"/tie_server/server.go",
-		upgrader.Server.Bytes(),
-		0644,
-	)
-	if err != nil {
-		return err
-	}
-	//#2
-
-	err = fs.MkdirAll(path+"/tie_upgraded", 0755)
+	err := fs.MkdirAll(fullPath, 0755)
 	if err != nil {
 		return err
 	}
 
-	files := upgrader.Parser.ToFiles()
 	for index, file := range files {
 		err = afero.WriteFile(
 			fs,
-			fmt.Sprintf("%s/tie_upgraded/%d.go", path, index),
-			file.Bytes(),
+			fmt.Sprintf("%s/%d.go", fullPath, index),
+			file,
 			0644,
 		)
 		if err != nil {
@@ -45,21 +28,27 @@ func (upgrader *Upgrader) Write() error {
 		}
 	}
 
-	//#3
-	err = fs.MkdirAll(path+"/tie_client", 0755)
+	return nil
+}
+
+//Write writes packages from buffer to filesystem
+func (upgrader *Upgrader) Write() error {
+	path := upgrader.Parser.Package.Path
+
+	err := writeHelper(path, "tie_server", upgrader.Server.Bytes())
 	if err != nil {
 		return err
 	}
-	err = afero.WriteFile(
-		fs,
-		path+"/tie_client/client.go",
-		upgrader.Client.Bytes(),
-		0644,
-	)
+
+	err = writeHelper(path, "tie_upgraded", upgrader.Parser.ToFiles()...)
 	if err != nil {
 		return err
 	}
-	//TODO write tie_upgraded
+
+	err = writeHelper(path, "tie_client", upgrader.Client.Bytes())
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -68,20 +57,12 @@ func (upgrader *Upgrader) Write() error {
 func (upgrader *Upgrader) Clean() error {
 	fs := afero.NewOsFs()
 	path := upgrader.Parser.Package.Path
+	tmpDirs := []string{"tie_server", "tie_client", "tie_upgraded"}
 
-	err := fs.RemoveAll(path + "/tie_server")
-	if err != nil {
-		return err
-	}
-
-	err = fs.RemoveAll(path + "/tie_client")
-	if err != nil {
-		return err
-	}
-
-	err = fs.RemoveAll(path + "/tie_upgraded")
-	if err != nil {
-		return err
+	for _, dir := range tmpDirs {
+		if err := fs.RemoveAll(fmt.Sprintf("%s/%s", path, dir)); err != nil {
+			return err
+		}
 	}
 
 	return nil

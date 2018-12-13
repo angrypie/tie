@@ -10,8 +10,11 @@ import (
 
 //Upgrader hold parsed package and uses templates to contruct new, upgraded, packages.
 type Upgrader struct {
-	Client        bytes.Buffer
-	Server        bytes.Buffer
+	//RPC API client package
+	Client bytes.Buffer
+	//RPC or/and HTTP API server package
+	Server bytes.Buffer
+	//Original package with replaced import.
 	Service       bytes.Buffer
 	Pkg           string
 	Parser        *parser.Parser
@@ -25,6 +28,30 @@ func NewUpgrader(service types.Service) *Upgrader {
 		ServiceConfig: &service,
 		Parser:        parser.NewParser(&service),
 	}
+}
+
+//Upgrade consequentialy calls Parse, Replace, Make and Write method
+func (upgrader *Upgrader) Upgrade(imports []string) error {
+	err := upgrader.Parse()
+	if err != nil {
+		return err
+	}
+
+	err = upgrader.Replace(imports)
+	if err != nil {
+		return err
+	}
+
+	err = upgrader.Make()
+	if err != nil {
+		return err
+	}
+
+	err = upgrader.Write()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 //Parse parses package and creates various structures for for fourther usage in templates
@@ -72,28 +99,4 @@ func (upgrader *Upgrader) Make() (err error) {
 	}
 
 	return err
-}
-
-//Upgrade consequentialy calls Replace, Make and Write method
-func (upgrader *Upgrader) Upgrade(imports []string) error {
-	err := upgrader.Parse()
-	if err != nil {
-		return err
-	}
-
-	err = upgrader.Replace(imports)
-	if err != nil {
-		return err
-	}
-
-	err = upgrader.Make()
-	if err != nil {
-		return err
-	}
-
-	err = upgrader.Write()
-	if err != nil {
-		return err
-	}
-	return nil
 }

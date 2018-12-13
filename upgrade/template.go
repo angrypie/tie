@@ -76,5 +76,6 @@ func (upgrader *Upgrader) addApiEndpoint(function *parser.Function) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }

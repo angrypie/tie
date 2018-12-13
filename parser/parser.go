@@ -121,18 +121,19 @@ func (p *Parser) GetTypes() (types []*Type, err error) {
 	return types, nil
 }
 
-func (p *Parser) ToFiles() (files []bytes.Buffer) {
+//ToFiles returns array of files in package. Each file represents as a bytes array.
+func (p *Parser) ToFiles() (files [][]byte) {
 	for _, pkg := range p.pkgs {
 		for _, file := range pkg.Files {
 			var buf bytes.Buffer
 			printer.Fprint(&buf, p.fset, file)
-			files = append(files, buf)
+			files = append(files, buf.Bytes())
 		}
 	}
 	return files
 }
 
-// Return false if import deleted but not added
+//UpgradeApiImports returns false if import deleted but not added.
 func (p *Parser) UpgradeApiImports(imports []string) bool {
 
 	for _, pkg := range p.pkgs {
@@ -156,6 +157,7 @@ func (p *Parser) UpgradeApiImports(imports []string) bool {
 	return true
 }
 
+//NewPackage returns new Packege instance wit initialized Name, Alias and Path.
 func NewPackage(name string) *Package {
 	arr := strings.Split(name, "/")
 	alias := arr[len(arr)-1]
