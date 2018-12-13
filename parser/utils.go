@@ -66,12 +66,11 @@ func (p *Parser) extractArgsList(list *ast.FieldList) (args []Field) {
 	return args
 }
 
-//TODO STUB
-//name works now fields
 func (p *Parser) processType(st *ast.StructType, ts *ast.TypeSpec) (*Type, bool) {
 	t := &Type{
 		Name:   ts.Name.Name,
 		Fields: p.extractArgsList(st.Fields),
 	}
+
 	return t, true
 }

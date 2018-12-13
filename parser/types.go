@@ -9,7 +9,6 @@ type Function struct {
 	ServiceType string
 }
 
-//TODO cange name
 type Field struct {
 	Name    string
 	Type    string

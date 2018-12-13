@@ -31,6 +31,7 @@ type Parser struct {
 	Service *tieTypes.Service
 }
 
+//NewParser creates new parser.
 func NewParser(service *tieTypes.Service) *Parser {
 	fset := token.NewFileSet()
 	return &Parser{
@@ -39,6 +40,7 @@ func NewParser(service *tieTypes.Service) *Parser {
 	}
 }
 
+//Parse initializes parser by parsing package. Should be called before any other method.
 func (p *Parser) Parse(pkg string) error {
 	p.Package = NewPackage(pkg)
 	if p.Service.Alias == "" {
@@ -57,7 +59,7 @@ func (p *Parser) Parse(pkg string) error {
 	}
 
 	if len(pkgs) != 1 {
-		return errors.New("Parsed directory should contain one package")
+		return errors.New("Parsed directory should contain one package (TODO)")
 	}
 
 	p.pkgs = pkgs
@@ -65,90 +67,79 @@ func (p *Parser) Parse(pkg string) error {
 		p.pkg = pkg
 		break
 	}
+
 	return nil
 }
 
-func (p *Parser) GetFunctions() (functions []*Function, err error) {
-	for _, pkg := range p.pkgs {
-		for _, file := range pkg.Files {
-			ast.Inspect(file, func(node ast.Node) bool {
-				switch n := node.(type) {
-				case *ast.FuncDecl:
-					if function, ok := p.processFunction(n); ok {
-						functions = append(functions, function)
-					}
-				}
-				return true
-			})
-		}
+func inspectNodesInPkg(pkg *ast.Package, inspect func(node ast.Node) bool) {
+	for _, file := range pkg.Files {
+		ast.Inspect(file, inspect)
 	}
+}
+
+//GetFunctions returns exported functions from package
+func (p *Parser) GetFunctions() (functions []*Function, err error) {
+	inspectNodesInPkg(p.pkg, func(node ast.Node) bool {
+		switch n := node.(type) {
+		case *ast.FuncDecl:
+			if function, ok := p.processFunction(n); ok {
+				functions = append(functions, function)
+			}
+		}
+		return true
+	})
 	return functions, nil
 }
 
-//TODO Refactoring with GetFunctions
+//GetTypes returns exported types from package
 func (p *Parser) GetTypes() (types []*Type, err error) {
-	for _, pkg := range p.pkgs {
-		for _, file := range pkg.Files {
-			ast.Inspect(file, func(node ast.Node) bool {
-				switch n := node.(type) {
-				case *ast.GenDecl:
-					if n.Tok != token.TYPE {
-						break
-					}
-					//TODO process every spec
-					ts := n.Specs[0].(*ast.TypeSpec)
+	inspectNodesInPkg(p.pkg, func(node ast.Node) bool {
+		switch n := node.(type) {
+		case *ast.GenDecl:
+			if n.Tok != token.TYPE {
+				break
+			}
+			//TODO GetTypes: figure out why is there many specs
+			ts := n.Specs[0].(*ast.TypeSpec)
 
-					if st, ok := ts.Type.(*ast.StructType); ok {
-						if t, ok := p.processType(st, ts); ok {
-							log.Println(1, ts.Name.Name)
-							types = append(types, t)
-						}
-					}
-
-					if st, ok := ts.Type.(*ast.SelectorExpr); ok {
-						log.Println(2, st.Sel.String())
-						fmt.Printf("%+v\n", st)
-						fmt.Printf("%+v\n", st.Sel)
-						fmt.Printf("%+v\n", st.X)
-
-					}
-
+			if st, ok := ts.Type.(*ast.StructType); ok {
+				if t, ok := p.processType(st, ts); ok {
+					types = append(types, t)
 				}
-				return true
-			})
+			}
+
+			//TODO GetTypes: handle ast.SelectorExpr
+			if st, ok := ts.Type.(*ast.SelectorExpr); ok {
+				log.Println("TODO GetTypes: ", st.Sel.String())
+			}
 		}
-	}
+		return true
+	})
 	return types, nil
 }
 
 //ToFiles returns array of files in package. Each file represents as a bytes array.
 func (p *Parser) ToFiles() (files [][]byte) {
-	for _, pkg := range p.pkgs {
-		for _, file := range pkg.Files {
-			var buf bytes.Buffer
-			printer.Fprint(&buf, p.fset, file)
-			files = append(files, buf.Bytes())
-		}
+	for _, file := range p.pkg.Files {
+		var buf bytes.Buffer
+		printer.Fprint(&buf, p.fset, file)
+		files = append(files, buf.Bytes())
 	}
 	return files
 }
 
 //UpgradeApiImports returns false if import deleted but not added.
 func (p *Parser) UpgradeApiImports(imports []string) bool {
+	for _, file := range p.pkg.Files {
+		for _, path := range imports {
+			//get alias from path
+			//TODO support named ipmports
+			arr := strings.Split(path, "/")
+			alias := arr[len(arr)-1]
 
-	for _, pkg := range p.pkgs {
-		for _, file := range pkg.Files {
-			for _, path := range imports {
-				//get alias from path
-				//TODO support named ipmports
-				arr := strings.Split(path, "/")
-				alias := arr[len(arr)-1]
-				ok := astutil.DeleteImport(p.fset, file, path)
-				if ok {
-					ok = astutil.AddNamedImport(p.fset, file, alias, path+"/tie_client")
-					if !ok {
-						return false
-					}
+			if astutil.DeleteImport(p.fset, file, path) {
+				if !astutil.AddNamedImport(p.fset, file, alias, path+"/tie_client") {
+					return false
 				}
 			}
 		}
@@ -168,6 +159,7 @@ func NewPackage(name string) *Package {
 	}
 }
 
+//GetPackageName returns package name.
 func (p *Parser) GetPackageName() string {
 	return p.pkg.Name
 }
