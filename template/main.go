@@ -170,6 +170,9 @@ func makeEchoAuth(key string) string {
 	}
 	const templ = `
 e.Use(middleware.KeyAuth(func(key string, c echo.Context) (bool, error) {
+	if envKey := os.Getenv("TIE_API_KEY"); envKey != "" {
+		return key == envKey, nil
+	}
   return key == "{{.}}", nil
 }))
 `
