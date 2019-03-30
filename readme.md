@@ -1,8 +1,8 @@
 (under development)
 
-No more single line of code for API, requests, discovery etc.
+No more single line of code for API, requests, discovery etc. It must be generated.
 
-See [examples](example/).  Just call `tie` in any example directory and then play around generated binaries :)
+See [examples](example/).  Just call `tie` in any example directory and then play around with generated binaries :)
 
 ## How it works
 
