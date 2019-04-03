@@ -49,7 +49,7 @@ func ReadDirAsConfig(dest string) error {
 	for _, file := range files {
 		if file.IsDir() {
 			pkgName := file.Name()
-			if strings.HasPrefix(pkgName, ".") {
+			if strings.HasPrefix(pkgName, ".") || pkgName == "libs" {
 				continue
 			}
 
