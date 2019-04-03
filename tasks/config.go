@@ -73,6 +73,10 @@ func ReadDirAsConfig(dest string) error {
 		}
 	}
 
+	if len(config.Services) == 0 {
+		config.Services = append(config.Services, types.Service{Name: basePath, Type: "httpOnly"})
+	}
+
 	return withConfigFile(&config)
 }
 
