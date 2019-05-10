@@ -61,6 +61,17 @@ type {{.Name}}Request struct {
 	{{end}}
 }
 
+{{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
+type {{.Name}}RequestHTTP struct {
+	{{if eq (index .Arguments 0).Name "RequestDTO"}}
+		{{.Package}}.{{ (index .Arguments 0).Type }}
+	{{else}}
+		{{range $k,$v := .Arguments}}{{$v.Name}} {{$v.Prefix}}{{if $v.Package}}{{$v.Package}}.{{end}}{{$v.Type}} {{$v.Name | tolower | printf "json:%q" | tobackquote}}
+		{{end}}
+	{{end}}
+}
+{{end}}
+
 
 {{if ne .ServiceType "httpOnly"}}
 type {{.Name}}Response struct {
@@ -103,7 +114,7 @@ func  {{.Name}}HTTPHandler(c echo.Context) (err error) {
 		{{if (eq (index .Arguments 0).Type "echo.Context")}}
 			{{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}} := {{.Package}}.{{.Name}}(c)
 		{{else}}
-			request := new({{.Name}}Request)
+			request := new({{.Name}}RequestHTTP)
 			if err := c.Bind(request); err != nil {
 				return err
 			}
@@ -113,7 +124,11 @@ func  {{.Name}}HTTPHandler(c echo.Context) (err error) {
 
 	//2. Call original function
 	{{range $k,$v := .Results}}{{if $k}},{{end}} {{$v.Name}}{{end}} := {{.Package}}.{{.Name}}(
-		{{range $k,$v := .Arguments}}request.{{$v.Name}},
+		{{if eq (index .Arguments 0).Name "RequestDTO"}}
+			request.{{ (index .Arguments 0).Type }},
+		{{else}}
+			{{range $k,$v := .Arguments}}request.{{$v.Name}},
+			{{end}}
 		{{end}}
 	)
 
@@ -134,7 +149,7 @@ func MakeApiWrapper(fn *parser.Function) ([]byte, error) {
 	}
 
 	funcMap := template.FuncMap{
-		// The name "title" is what the function will be called in the template text.
+		//The name "title" is what the function will be called in the template text.
 		"tolower": strings.ToLower,
 		"tobackquote": func(str string) string {
 			return "`" + str + "`"
