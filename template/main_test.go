@@ -19,9 +19,20 @@ func TestMain(t *testing.T) {
 		},
 		Functions: []*parser.Function{
 			&parser.Function{
+				Name: "DelUser",
+				Arguments: []parser.Field{
+					parser.Field{Name: "name", Type: "string", Package: ""},
+					parser.Field{Name: "force", Type: "bool", Package: ""},
+				},
+				Results: []parser.Field{
+					parser.Field{Name: "id", Type: "string"},
+					parser.Field{Name: "err", Type: "error"},
+				},
+			},
+			&parser.Function{
 				Name: "GetUsers",
 				Arguments: []parser.Field{
-					parser.Field{Name: "", Type: "GetUserRequest", Package: "emon"},
+					parser.Field{Name: "requestDTO", Type: "GetUserRequest", Package: "daemon"},
 				},
 				Results: []parser.Field{
 					parser.Field{Name: "id", Type: "string"},

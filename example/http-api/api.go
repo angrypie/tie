@@ -1,21 +1,29 @@
 package api
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type CreateHumanDTO struct {
-	Name     string
-	Age      int
-	Gender   string
-	Location Location
+	Name   string
+	Age    int
+	Gender string
 }
 
-type Location struct {
-	City string
+type HumanCreatedDTO struct {
+	Msg string
+	Err error
 }
 
-func CreateHuman(requestDTO CreateHumanDTO) (msg string, err error) {
-	name, location := requestDTO.Name, requestDTO.Location.City
-	return fmt.Sprintf("Human %s from %s created.", name, location), nil
+func CreateHuman(requestDto CreateHumanDTO) (msg string, err error) {
+	req := &requestDto
+	name, age := req.Name, req.Age
+	if name == "paul" {
+		return "", errors.New("already exist")
+	}
+	//name, location := requestDTO.Name, requestDTO.Location.City
+	return fmt.Sprintf("Human %s (%d) created.", name, age), nil
 }
 
 func DeleteHuman(name string) (msg string, err error) {

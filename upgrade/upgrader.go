@@ -3,8 +3,10 @@ package upgrade
 import (
 	"bytes"
 	"errors"
+	"log"
 
 	"github.com/angrypie/tie/parser"
+	"github.com/angrypie/tie/template"
 	"github.com/angrypie/tie/types"
 )
 
@@ -71,32 +73,40 @@ func (upgrader *Upgrader) Replace(imports []string) error {
 //Make builds client, server, service packages to buffers using tempaltes
 func (upgrader *Upgrader) Make() (err error) {
 	p := upgrader.Parser
-	functions, err := p.GetFunctions()
+	log.Printf("%+v", p.Service)
+	info, err := template.NewPackageInfoFromParser(p)
+	if err != nil {
+		return err
+	}
+	serverStr, err := template.GetServerMain(info)
 	if err != nil {
 		return err
 	}
 
-	err = upgrader.initServerUpgrade(p)
+	_, err = upgrader.Server.WriteString(serverStr)
 	if err != nil {
 		return err
 	}
 
-	for _, function := range functions {
-		//Ignore  StopService methods
-		if name := function.Name; name == "StopService" {
-			continue
-		}
-		//Contruct both client API lib and API server
-		err = upgrader.addApiEndpoint(function)
-		if err != nil {
-			return err
-		}
-	}
+	//err = upgrader.initServerUpgrade(p)
+	//if err != nil {
+	//return err
+	//}
 
-	err = upgrader.addServerMain(p, functions)
-	if err != nil {
-		return err
-	}
+	//for _, function := range functions {
+	//if name := function.Name; name == "StopService" {
+	//continue
+	//}
+	//err = upgrader.addApiEndpoint(function)
+	//if err != nil {
+	//return err
+	//}
+	//}
+
+	//err = upgrader.addServerMain(p, functions)
+	//if err != nil {
+	//return err
+	//}
 
 	return err
 }

@@ -9,7 +9,7 @@ import (
 )
 
 func GetServerMain(info *PackageInfo) (string, error) {
-	f := NewFile("alias")
+	f := NewFile("main")
 
 	f.Func().Id("main").Params().BlockFunc(func(g *Group) {
 		makeGracefulShutdown(info, g, f)
@@ -32,7 +32,7 @@ func makeInitService(info *PackageInfo, main *Group, f *File) {
 		return
 	}
 	main.If(
-		Err().Op(":=").Qual(info.Path, "InitService").Call(),
+		Err().Op(":=").Qual(info.Service.Name, "InitService").Call(),
 		Err().Op("!=").Nil(),
 	).Block(
 		createErrLog("failed to init service"),
@@ -41,9 +41,10 @@ func makeInitService(info *PackageInfo, main *Group, f *File) {
 }
 
 func makeGracefulShutdown(info *PackageInfo, g *Group, f *File) {
-	g.Id("gcacefulShutDown").Call()
+	functionName := "gracefulShutDown"
+	g.Id(functionName).Call()
 
-	f.Func().Id("gracefulShutDown").Params().Block(
+	f.Func().Id(functionName).Params().Block(
 		Id("sigChan").Op(":=").Make(Chan().Qual("os", "Signal")),
 		Qual("os/signal", "Notify").Call(Id("sigChan"), Qual("syscall", "SIGTERM")),
 		Qual("os/signal", "Notify").Call(Id("sigChan"), Qual("syscall", "SIGINT")),
@@ -52,7 +53,7 @@ func makeGracefulShutdown(info *PackageInfo, g *Group, f *File) {
 			g.Op("<-").Id("sigChan")
 			if info.IsStopService {
 				//TODO add time limit for StopService execution
-				g.Id("err").Op(":=").Qual(info.Path, "StopService").Call()
+				g.Id("err").Op(":=").Qual(info.Service.Name, "StopService").Call()
 				g.If(Err().Op("!=").Nil()).Block(
 					Qual("log", "Println").Call(List(Lit("ERR failed to stop service"), Err())),
 				)
@@ -66,7 +67,6 @@ type PackageInfo struct {
 	Functions     []*parser.Function
 	IsInitService bool
 	IsStopService bool
-	Path          string
 	Service       *types.Service
 }
 
@@ -85,7 +85,6 @@ func NewPackageInfoFromParser(p *parser.Parser) (*PackageInfo, error) {
 
 	info := PackageInfo{
 		Functions: fns,
-		Path:      p.Package.Path,
 		Service:   p.Service,
 	}
 
