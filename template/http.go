@@ -106,7 +106,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 					).Block(
 						Id("auth").Op("=").Id("envKey"),
 					),
-					Return().List(Id("key").Op("==").Id("auth"), Error()),
+					Return().List(Id("key").Op("==").Id("auth"), Nil()),
 				)),
 			)
 		}
