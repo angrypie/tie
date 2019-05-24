@@ -5,27 +5,28 @@ import (
 	"fmt"
 )
 
-type CreateHumanDTO struct {
+type CreateHumanRequest struct {
 	Name   string
 	Age    int
 	Gender string
 }
 
-type HumanCreatedDTO struct {
-	Msg string
-	Err error
+type CreateHumanResponse struct {
+	Msg string `json:"msg"`
+	Err error  `json:"err"`
 }
 
-func CreateHuman(requestDto CreateHumanDTO) (msg string, err error) {
+func CreateHuman(id string, requestDto CreateHumanRequest) (responseDTO CreateHumanResponse) {
 	req := &requestDto
-	name, age := req.Name, req.Age
+	name, id := req.Name, id
 	if name == "paul" {
-		return "", errors.New("already exist")
+		return CreateHumanResponse{Err: errors.New("already exist")}
 	}
-	//name, location := requestDTO.Name, requestDTO.Location.City
-	return fmt.Sprintf("Human %s (%d) created.", name, age), nil
+	return CreateHumanResponse{
+		Msg: fmt.Sprintf("Human %s (%s) created.", name, id),
+	}
 }
 
-func DeleteHuman(name string) (msg string, err error) {
-	return fmt.Sprintf("Human %s deleted", name), nil
+func DeleteHuman(name string, gender string, age int) (msg string, err error) {
+	return fmt.Sprintf("Human %s (%s) deleted", name, gender), nil
 }
