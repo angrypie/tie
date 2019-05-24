@@ -51,22 +51,35 @@ func getMethodTypes(method, postfix string) (handler, request, response string) 
 	return
 }
 
-func createArgsListFunc(args []parser.Field, prefix ...string) func(*Group) {
-	p := ""
-	if len(prefix) > 0 {
-		p = prefix[0]
+func createArgsListFunc(args []parser.Field, params ...string) func(*Group) {
+	return createArgsList(args, func(arg *Statement) *Statement {
+		return arg
+	}, params...)
+}
+
+func createArgsList(args []parser.Field, transform func(*Statement) *Statement, params ...string) func(*Group) {
+	prefix, typeNames := "", ""
+	if len(params) > 0 {
+		prefix = params[0]
+	}
+	if len(params) > 1 {
+		typeNames = params[1]
 	}
 	return func(g *Group) {
-		for i, arg := range args {
-			if i == 0 && isArgNameAreDTO(arg.Name) && p != "" {
-				g.Id(p).Dot(arg.Type)
+		for _, arg := range args {
+			//Skip iteration if argument type not specified
+			if typeNames != "" && !strings.Contains(typeNames, arg.Type+",") {
+				continue
+			}
+			if isArgNameAreDTO(arg.Name) && prefix != "" {
+				g.Add(transform(Id(prefix).Dot(arg.Type)))
 				return
 			}
 			name := strings.Title(arg.Name)
-			if p != "" {
-				g.Id(p).Dot(name)
+			if prefix != "" {
+				g.Add(transform(Id(prefix).Dot(name)))
 			} else {
-				g.Id(name)
+				g.Add(transform(Id(name)))
 			}
 		}
 	}

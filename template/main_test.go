@@ -10,7 +10,6 @@ import (
 
 func TestMain(t *testing.T) {
 	info := PackageInfo{
-		Path:          "github.com/someservice/daemon",
 		IsStopService: true,
 		IsInitService: true,
 		Service: &types.Service{
