@@ -21,7 +21,7 @@ func createTypeFromArgs(name string, args []parser.Field, info *PackageInfo) Cod
 			} else {
 				field.Id(arg.Type)
 			}
-			jsonTag := fmt.Sprintf("%s,omitempty", strings.ToLower(name))
+			jsonTag := fmt.Sprintf("%s", strings.ToLower(name))
 			if arg.Type == "error" {
 				jsonTag = "-"
 			}
