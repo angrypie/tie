@@ -3,7 +3,6 @@ package parser
 import (
 	"go/ast"
 	"go/types"
-	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -33,7 +32,6 @@ func (p *Parser) extractArgsList(list *ast.FieldList) (args []Field) {
 	params := list.List
 	for count, param := range params {
 		currentType := types.ExprString(param.Type)
-		log.Println("new type", currentType)
 		var currentPackage string
 		var typePrefix string
 
