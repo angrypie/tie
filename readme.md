@@ -6,16 +6,19 @@ See [examples](example/).  Just call `tie` in any example directory and then pla
 
 ## How it works
 
-Be careful, due errors `tie` may leave folders prefixed by `tie_`.
+***Be careful, due errors `tie` may leave folders prefixed by `tie_`.***
 
 Use `tie clean` to remove `*.run` files.
 
-Call `tie` without tie.yml configuration:
+#### Call `tie` without tie.yml configuration:
+
 - Every top level directory considered as package for processing
 - Every not main package will be transformed to an RPC service.
 - Every public method call to future RPC service will be changed to RPC call.
 
-Call `tie` with configuaration. Example tie.yml:
+#### Call `tie` with configuaration.
+
+Example tie.yml:
 
 ```yml
 services:
