@@ -42,6 +42,7 @@ func NewParser(service *tieTypes.Service) *Parser {
 
 //Parse initializes parser by parsing package. Should be called before any other method.
 func (p *Parser) Parse(pkg string) error {
+	log.Println(pkg)
 	p.Package = NewPackage(pkg)
 	if p.Service.Alias == "" {
 		p.Service.Alias = p.Package.Alias

@@ -2,6 +2,8 @@ package template
 
 import (
 	"fmt"
+	"log"
+	"regexp"
 	"strings"
 
 	"github.com/angrypie/tie/parser"
@@ -22,9 +24,9 @@ func makeHTTPServer(info *PackageInfo, main *Group, f *File) {
 
 func makeHTTPHandlers(info *PackageInfo, main *Group, f *File) {
 	f.Comment(fmt.Sprintf("API handler methods (%s)", "HTTP")).Line()
-	for _, fn := range info.Functions {
+	forEachFunction(info.Functions, func(fn *parser.Function) {
 		makeHTTPHandler(info, fn, f.Group)
-	}
+	})
 }
 
 func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
@@ -50,8 +52,19 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 
 		//Call original function
 		g.Id("response").Op(":=").New(Id(response))
-		g.ListFunc(createArgsListFunc(fn.Results, "response")).
-			Op("=").Qual(info.Service.Name, fn.Name).Call(ListFunc(createArgsListFunc(fn.Arguments, "request")))
+
+		//If method has receiver generate receiver middleware code
+		//else just call public package method
+		if receiver := fn.Receiver; receiver.Name != "" {
+			receiverVar := "Receiver"
+			g.Id(receiverVar).Op(":=").Qual(info.Service.Name, strings.Trim(receiver.Type, "*")).Block()
+			makeReceiverMiddleware(receiverVar, g, findInitReceiver(info.Functions, fn))
+			g.ListFunc(createArgsListFunc(fn.Results, "response")).
+				Op("=").Id(receiverVar).Dot(fn.Name).Call(ListFunc(createArgsListFunc(fn.Arguments, "request")))
+		} else {
+			g.ListFunc(createArgsListFunc(fn.Results, "response")).
+				Op("=").Qual(info.Service.Name, fn.Name).Call(ListFunc(createArgsListFunc(fn.Arguments, "request")))
+		}
 
 		g.If(Err().Op(":=").Id("response").Dot("Err"), Err().Op("!=").Nil()).Block(
 			Return(Id("ctx").Dot("JSON").Call(
@@ -74,9 +87,9 @@ func makeHTTPRequestResponseTypes(info *PackageInfo, main *Group, f *File) {
 }
 
 func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
-	echo := "github.com/labstack/echo"
 	echoMiddleware := "github.com/labstack/echo/middleware"
 	rndport := "github.com/angrypie/rndport"
+	echo := "github.com/labstack/echo"
 
 	main.Go().Id("startHTTPServer").Call()
 
@@ -97,13 +110,13 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 			}),
 		))
 
-		for _, fn := range info.Functions {
+		forEachFunction(info.Functions, func(fn *parser.Function) {
 			handler, _, _ := getMethodTypes(fn.Name, "HTTP")
 			g.Id("server").Dot("POST").Call(
 				Lit(strings.ToLower(fn.Name)),
 				Id(handler),
 			)
-		}
+		})
 
 		if key := info.Service.Auth; key != "" {
 			g.Id("server").Dot("Use").Call(Qual(echoMiddleware, "KeyAuth").Call(
@@ -129,4 +142,49 @@ func makeFirstNotEmptyStr(info *PackageInfo, main *Group, f *File) {
 		If(Id("a").Op("!=").Lit("")).Block(Return(Id("a"))),
 		Return(Id("b")),
 	)
+}
+
+func forEachFunction(fns []*parser.Function, cb func(*parser.Function)) {
+	for _, fn := range fns {
+		//Skip InitReceiver middleware
+		log.Println("process", fn.Name)
+		if fn.Receiver.Name != "" && fn.Name == "InitReceiver" {
+			log.Println("continue")
+			continue
+		}
+		cb(fn)
+	}
+}
+
+func findInitReceiver(fns []*parser.Function, forFunc *parser.Function) *parser.Function {
+	for _, fn := range fns {
+		if fn.Name != "InitReceiver" {
+			continue
+		}
+		reg := fmt.Sprintf(`\A\*?%s\z`, forFunc.Receiver.Type)
+		if match, _ := regexp.MatchString(reg, fn.Receiver.Type); !match {
+			continue
+		}
+
+		return fn
+	}
+	return nil
+}
+
+func makeReceiverMiddleware(recId string, scope *Group, initReceiver *parser.Function) {
+	if initReceiver == nil {
+		return
+	}
+	scope.Id(recId).Dot("InitReceiver").CallFunc(func(g *Group) {
+		for _, field := range initReceiver.Arguments {
+			name := field.Name
+			//TODO check function signature
+			if name == "getHeader" {
+				headerArg := "header"
+				g.Func().Params(Id(headerArg).String()).String().Block(
+					Return(Id("ctx").Dot("Request").Call().Dot("Header").Dot("Get").Call(Id(headerArg))),
+				)
+			}
+		}
+	})
 }

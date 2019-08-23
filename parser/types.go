@@ -4,7 +4,7 @@ type Function struct {
 	Name        string
 	Arguments   []Field
 	Results     []Field
-	Imports     []string
+	Receiver    Field
 	Package     string
 	ServiceType string
 }

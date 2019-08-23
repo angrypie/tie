@@ -13,6 +13,11 @@ func (p *Parser) processFunction(n *ast.FuncDecl) (*Function, bool) {
 	if ok, err := regexp.MatchString("^[A-Z]", name); !ok || err != nil {
 		return nil, false
 	}
+
+	var receiver Field
+	for _, rec := range p.extractArgsList(n.Recv) {
+		receiver = rec
+	}
 	args := p.extractArgsList(n.Type.Params)
 	results := p.extractArgsList(n.Type.Results)
 
@@ -20,6 +25,7 @@ func (p *Parser) processFunction(n *ast.FuncDecl) (*Function, bool) {
 		Name:        name,
 		Arguments:   args,
 		Results:     results,
+		Receiver:    receiver,
 		Package:     p.Service.Alias,
 		ServiceType: p.Service.Type,
 	}, true

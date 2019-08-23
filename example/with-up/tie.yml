@@ -1,4 +1,0 @@
-services:
-  - name: 'github.com/angrypie/tie/example/with-up'
-    alias: 'pets'
-    type: 'httpOnly'

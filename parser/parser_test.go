@@ -1,10 +1,16 @@
 package parser
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/angrypie/tie/types"
+)
 
 func TestParser(t *testing.T) {
-	parser := NewParser()
-	err := parser.Parse("github.com/angrypie/tie/example/basic")
+	pkg := "github.com/angrypie/tie/example/basic"
+	service := &types.Service{Name: pkg}
+	parser := NewParser(service)
+	err := parser.Parse(pkg)
 	if err != nil {
 		t.Error(err)
 	}

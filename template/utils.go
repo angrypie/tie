@@ -34,13 +34,13 @@ func createTypeFromArgs(name string, args []parser.Field, info *PackageInfo) Cod
 func createReqRespTypes(postfix string, info *PackageInfo) Code {
 	code := Comment(fmt.Sprintf("Request/Response types (%s)", postfix)).Line()
 
-	for _, fn := range info.Functions {
+	forEachFunction(info.Functions, func(fn *parser.Function) {
 		_, reqName, respName := getMethodTypes(fn.Name, postfix)
 		code.Add(createTypeFromArgs(reqName, fn.Arguments, info))
 		code.Line()
 		code.Add(createTypeFromArgs(respName, fn.Results, info))
 		code.Line()
-	}
+	})
 	return code
 }
 
