@@ -2,7 +2,6 @@ package template
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 
@@ -66,11 +65,9 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 				Op("=").Qual(info.Service.Name, fn.Name).Call(ListFunc(createArgsListFunc(fn.Arguments, "request")))
 		}
 
-		g.If(Err().Op(":=").Id("response").Dot("Err"), Err().Op("!=").Nil()).Block(
-			Return(Id("ctx").Dot("JSON").Call(
-				Qual("net/http", "StatusBadRequest"),
-				Map(String()).String().Values(Dict{Lit("err"): Err().Dot("Error").Call()}),
-			)),
+		ifErrorReturnBadRequestWithErr(
+			g,
+			Err().Op(":=").Id("response").Dot("Err"),
 		)
 
 		g.Return(Id("ctx").Dot("JSON").Call(Qual("net/http", "StatusOK"), Id("response")))
@@ -147,9 +144,7 @@ func makeFirstNotEmptyStr(info *PackageInfo, main *Group, f *File) {
 func forEachFunction(fns []*parser.Function, cb func(*parser.Function)) {
 	for _, fn := range fns {
 		//Skip InitReceiver middleware
-		log.Println("process", fn.Name)
 		if fn.Receiver.Name != "" && fn.Name == "InitReceiver" {
-			log.Println("continue")
 			continue
 		}
 		cb(fn)
@@ -175,7 +170,7 @@ func makeReceiverMiddleware(recId string, scope *Group, initReceiver *parser.Fun
 	if initReceiver == nil {
 		return
 	}
-	scope.Id(recId).Dot("InitReceiver").CallFunc(func(g *Group) {
+	initReceiverCall := func(g *Group) {
 		for _, field := range initReceiver.Arguments {
 			name := field.Name
 			//TODO check function signature
@@ -186,5 +181,22 @@ func makeReceiverMiddleware(recId string, scope *Group, initReceiver *parser.Fun
 				)
 			}
 		}
-	})
+	}
+
+	ifErrorReturnBadRequestWithErr(
+		scope,
+		Err().Op(":=").Id(recId).Dot("InitReceiver").CallFunc(initReceiverCall),
+	)
+}
+
+func ifErrorReturnBadRequestWithErr(scope *Group, statement *Statement) {
+	scope.If(
+		statement,
+		Err().Op("!=").Nil(),
+	).Block(
+		Return(Id("ctx").Dot("JSON").Call(
+			Qual("net/http", "StatusBadRequest"),
+			Map(String()).String().Values(Dict{Lit("err"): Err().Dot("Error").Call()}),
+		)),
+	)
 }
