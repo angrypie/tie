@@ -110,7 +110,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 		forEachFunction(info.Functions, func(fn *parser.Function) {
 			handler, _, _ := getMethodTypes(fn.Name, "HTTP")
 			g.Id("server").Dot("POST").Call(
-				Lit(strings.ToLower(fn.Name)),
+				Lit(toSnakeCase(fn.Name)),
 				Id(handler),
 			)
 		})

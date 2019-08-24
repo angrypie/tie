@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/angrypie/tie/parser"
@@ -88,4 +89,12 @@ func createArgsList(args []parser.Field, transform func(*Statement) *Statement, 
 func isArgNameAreDTO(name string) bool {
 	n := strings.ToLower(name)
 	return n == "requestdto" || n == "responsedto"
+}
+
+var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
+
+func toSnakeCase(str string) string {
+	return strings.ToLower(
+		matchAllCap.ReplaceAllString(str, "${1}_${2}"),
+	)
 }

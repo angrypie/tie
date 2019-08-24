@@ -45,3 +45,10 @@ Place this file in any directory and call `tie` than execute `sum.run` to start 
 ```
 
 
+## TODO
+
+#### docs HTTP
+
+- request and response DTO
+- receiver concept
+
