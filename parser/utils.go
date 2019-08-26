@@ -80,8 +80,9 @@ func (p *Parser) processType(st *ast.StructType, ts *ast.TypeSpec) (*Type, bool)
 	return t, true
 }
 
+//TODO needs tests for this
 func isExportedType(t string) (bool, string) {
-	prefixes := []string{"[]*", "[]", "*"}
+	prefixes := []string{"[]", "*", "[]*"}
 	for _, prefix := range prefixes {
 		if ast.IsExported(strings.Trim(t, prefix)) {
 			return true, prefix
