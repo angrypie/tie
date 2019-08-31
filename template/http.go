@@ -180,6 +180,12 @@ func makeReceiverMiddleware(recId string, scope *Group, initReceiver *parser.Fun
 					Return(Id("ctx").Dot("Request").Call().Dot("Header").Dot("Get").Call(Id(headerArg))),
 				)
 			}
+			if name == "getEnv" {
+				envName := "envName"
+				g.Func().Params(Id(envName).String()).String().Block(
+					Return(Qual("os", "Getenv").Call(Id(envName))),
+				)
+			}
 		}
 	}
 
