@@ -103,7 +103,3 @@ func NewPackageInfoFromParser(p *parser.Parser) (*PackageInfo, error) {
 func createErrLog(msg string) *Statement {
 	return Qual("log", "Printf").Call(List(Lit("ERR %s: %s"), Lit(msg), Err()))
 }
-
-func addErrLog(g *Group, msg string) *Statement {
-	return g.Add(createErrLog(msg))
-}

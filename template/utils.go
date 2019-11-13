@@ -22,7 +22,7 @@ func createTypeFromArgs(name string, args []parser.Field, info *PackageInfo) Cod
 			} else {
 				field.Id(arg.Type)
 			}
-			jsonTag := fmt.Sprintf("%s", strings.ToLower(name))
+			jsonTag := strings.ToLower(name)
 			if arg.Type == "error" {
 				jsonTag = "-"
 			}

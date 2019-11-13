@@ -156,11 +156,11 @@ func MakeApiWrapper(fn *parser.Function) ([]byte, error) {
 		},
 	}
 
-	for i, _ := range fn.Arguments {
+	for i := range fn.Arguments {
 		fn.Arguments[i].Name = strings.Title(fn.Arguments[i].Name)
 	}
 
-	for i, _ := range fn.Results {
+	for i := range fn.Results {
 		fn.Results[i].Name = strings.Title(fn.Results[i].Name)
 	}
 
@@ -193,11 +193,11 @@ func MakeApiClient(fn *parser.Function) ([]byte, error) {
 		},
 	}
 
-	for i, _ := range fn.Arguments {
+	for i := range fn.Arguments {
 		fn.Arguments[i].Name = strings.Title(fn.Arguments[i].Name)
 	}
 
-	for i, _ := range fn.Results {
+	for i := range fn.Results {
 		fn.Results[i].Name = strings.Title(fn.Results[i].Name)
 	}
 
