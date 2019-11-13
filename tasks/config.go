@@ -22,7 +22,7 @@ func ReadConfigFile(dest string) error {
 	configPath := fmt.Sprintf("%s/tie.yml", dest)
 	buf, err := afero.ReadFile(fs, configPath)
 	if err != nil {
-		return errors.New("Cant read file")
+		return errors.New("cant read file")
 	}
 
 	return configFromYaml(buf, dest)

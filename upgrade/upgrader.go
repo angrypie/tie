@@ -64,7 +64,7 @@ func (upgrader *Upgrader) Parse() (err error) {
 func (upgrader *Upgrader) Replace(imports []string) error {
 	ok := upgrader.Parser.UpgradeApiImports(imports)
 	if !ok {
-		return errors.New("Import deleted but not added")
+		return errors.New("import deleted but not added")
 	}
 	return nil
 }

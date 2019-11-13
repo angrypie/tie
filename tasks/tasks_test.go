@@ -1,6 +1,9 @@
 package tasks
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestConfig(t *testing.T) {
 	config := []byte(`
@@ -27,8 +30,11 @@ func TestReadDir(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = CleanBinary("../example/basic")
+	removed, err := CleanBinary("../example/basic")
 	if err != nil {
 		t.Error(err)
+	}
+	if len(removed) == 0 {
+		t.Error(errors.New("number of removed items should be greater than 0"))
 	}
 }

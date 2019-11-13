@@ -60,7 +60,7 @@ func (p *Parser) Parse(pkg string) error {
 	}
 
 	if len(pkgs) != 1 {
-		return errors.New("Parsed directory should contain one package (TODO)")
+		return errors.New("parsed directory should contain one package (TODO)")
 	}
 
 	p.pkgs = pkgs

@@ -33,7 +33,7 @@ func (upgrader *Upgrader) BuildTo(dist string) error {
 	}
 	if ok {
 		if ok, _ := afero.IsDir(fs, fmt.Sprintf("%s/%s", path, dist+"/"+binName)); ok {
-			return errors.New("Directory with same name as binary exist")
+			return errors.New("directory with same name as binary exist")
 		}
 	}
 
