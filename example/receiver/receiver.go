@@ -1,22 +1,35 @@
 package receiver
 
+import (
+	"fmt"
+)
+
+type KV = func(string) string
+type greeter struct{}
+
+func (g *greeter) greet(name string) string {
+	return fmt.Sprintf("Hello brah %s\n", name)
+}
+
+type Provider struct {
+	greeter *greeter
+}
+
+func (p *Provider) InitReceiver() (err error) {
+	p.greeter = &greeter{}
+	return
+}
+
+func (p *Provider) User(getHeader KV) (user *User, err error) {
+	name := getHeader("UserName")
+	return &User{name, p.greeter}, nil
+}
+
 type User struct {
-	Name string
+	Name    string
+	greeter *greeter
 }
 
-func (user *User) InitReceiver(
-	getHeader func(string) string,
-	getEnv func(string) string,
-) (err error) {
-
-	user.Name = getEnv("USER_NAME")
-	if name := getHeader("UserName"); name != "" {
-		user.Name = name
-	}
-
-	return nil
-}
-
-func (user User) Greeting() (greeting string, err error) {
-	return "Hello, my name is " + user.Name, nil
+func (user *User) Hello() (greeting string, err error) {
+	return user.greeter.greet(user.Name), nil
 }

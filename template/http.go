@@ -30,7 +30,7 @@ func makeHTTPHandlers(info *PackageInfo, main *Group, f *File) {
 
 func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 	echo := "github.com/labstack/echo"
-	handler, request, response := getMethodTypes(fn.Name, "HTTP")
+	handler, request, response := getMethodTypes(fn, "HTTP")
 	handlerBody := func(g *Group) {
 		//Bind request params
 		if len(fn.Arguments) > 0 {
@@ -107,10 +107,16 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 			}),
 		))
 
+		//Add http handler for each function.
+		//Route format is /receiver_name/method_name
 		forEachFunction(info.Functions, func(fn *parser.Function) {
-			handler, _, _ := getMethodTypes(fn.Name, "HTTP")
+			route := fn.Name
+			handler, _, _ := getMethodTypes(fn, "HTTP")
+			if receiver := strings.ToLower(fn.Receiver.Type); receiver != "" {
+				route = fmt.Sprintf("%s/%s", receiver, route)
+			}
 			g.Id("server").Dot("POST").Call(
-				Lit(toSnakeCase(fn.Name)),
+				Lit(toSnakeCase(route)),
 				Id(handler),
 			)
 		})
@@ -173,13 +179,15 @@ func makeReceiverMiddleware(recId string, scope *Group, initReceiver *parser.Fun
 	initReceiverCall := func(g *Group) {
 		for _, field := range initReceiver.Arguments {
 			name := field.Name
-			//TODO check function signature
+			//TODO check getHeader and getEnv function signature
+			//Inject getHeader function that returns header of current request
 			if name == "getHeader" {
 				headerArg := "header"
 				g.Func().Params(Id(headerArg).String()).String().Block(
 					Return(Id("ctx").Dot("Request").Call().Dot("Header").Dot("Get").Call(Id(headerArg))),
 				)
 			}
+			//Inject getEnv function that provide access to environment variables
 			if name == "getEnv" {
 				envName := "envName"
 				g.Func().Params(Id(envName).String()).String().Block(

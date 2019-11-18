@@ -36,7 +36,7 @@ func createReqRespTypes(postfix string, info *PackageInfo) Code {
 	code := Comment(fmt.Sprintf("Request/Response types (%s)", postfix)).Line()
 
 	forEachFunction(info.Functions, func(fn *parser.Function) {
-		_, reqName, respName := getMethodTypes(fn.Name, postfix)
+		_, reqName, respName := getMethodTypes(fn, postfix)
 		code.Add(createTypeFromArgs(reqName, fn.Arguments, info))
 		code.Line()
 		code.Add(createTypeFromArgs(respName, fn.Results, info))
@@ -45,10 +45,11 @@ func createReqRespTypes(postfix string, info *PackageInfo) Code {
 	return code
 }
 
-func getMethodTypes(method, postfix string) (handler, request, response string) {
-	handler = fmt.Sprintf("%s%sHandler", method, postfix)
-	request = fmt.Sprintf("%s%sRequest", method, postfix)
-	response = fmt.Sprintf("%s%sResponse", method, postfix)
+func getMethodTypes(fn *parser.Function, postfix string) (handler, request, response string) {
+	method, receiver := fn.Name, fn.Receiver.Type
+	handler = fmt.Sprintf("%s%s%sHandler", receiver, method, postfix)
+	request = fmt.Sprintf("%s%s%sRequest", receiver, method, postfix)
+	response = fmt.Sprintf("%s%s%sResponse", receiver, method, postfix)
 	return
 }
 

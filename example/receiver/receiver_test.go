@@ -1,20 +1,16 @@
 package receiver
 
 import (
+	"log"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestReceiver(t *testing.T) {
 	user := User{}
-	user.InitReceiver(func(header string) string {
-		return "Paul"
-	})
+	greeting, err := user.Hello()
+	require.NoError(t, err)
+	log.Println(greeting)
 
-	greeting, err := user.Greeting()
-	if err != nil {
-		t.Error(err)
-	}
-	if greeting != "Hello, my name is Paul" {
-		t.Error("Greetings does not match" + greeting)
-	}
 }
