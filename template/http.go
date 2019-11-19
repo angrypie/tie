@@ -31,6 +31,7 @@ func makeHTTPHandlers(info *PackageInfo, main *Group, f *File) {
 func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 	echo := "github.com/labstack/echo"
 	handler, request, response := getMethodTypes(fn, "HTTP")
+	receiverVarName := getReceiverVarName(fn.Receiver.Type)
 	handlerBody := func(g *Group) {
 		//Bind request params
 		if len(fn.Arguments) > 0 {
@@ -54,12 +55,9 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 
 		//If method has receiver generate receiver middleware code
 		//else just call public package method
-		if receiver := fn.Receiver; receiver.Name != "" {
-			receiverVar := "Receiver"
-			g.Id(receiverVar).Op(":=").Qual(info.Service.Name, strings.Trim(receiver.Type, "*")).Block()
-			makeReceiverMiddleware(receiverVar, g, findInitReceiver(info.Functions, fn))
+		if hasReceiver(fn) {
 			g.ListFunc(createArgsListFunc(fn.Results, "response")).
-				Op("=").Id(receiverVar).Dot(fn.Name).Call(ListFunc(createArgsListFunc(fn.Arguments, "request")))
+				Op("=").Id(receiverVarName).Dot(fn.Name).Call(ListFunc(createArgsListFunc(fn.Arguments, "request")))
 		} else {
 			g.ListFunc(createArgsListFunc(fn.Results, "response")).
 				Op("=").Qual(info.Service.Name, fn.Name).Call(ListFunc(createArgsListFunc(fn.Arguments, "request")))
@@ -73,10 +71,23 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 		g.Return(Id("ctx").Dot("JSON").Call(Qual("net/http", "StatusOK"), Id("response")))
 	}
 
-	file.Func().Id(handler).
-		Params(Id("ctx").Qual(echo, "Context")).
-		Params(Err().Error()).BlockFunc(handlerBody).
-		Line()
+	//Create handler methods that use closure to inject receiver if it exist.
+	if hasReceiver(fn) {
+		file.Func().Id(handler).Params(
+			Id(receiverVarName).Op("*").Qual(info.Service.Name, strings.Trim(fn.Receiver.Type, "*")),
+		).Params(
+			Func().Params(Qual(echo, "Context")).Params(Error()),
+		).Block(Return(Func().
+			Params(Id("ctx").Qual(echo, "Context")).
+			Params(Err().Error()).BlockFunc(handlerBody),
+		)).Line()
+	} else {
+		file.Func().Id(handler).
+			Params(Id("ctx").Qual(echo, "Context")).
+			Params(Err().Error()).BlockFunc(handlerBody).
+			Line()
+	}
+
 }
 
 func makeHTTPRequestResponseTypes(info *PackageInfo, main *Group, f *File) {
@@ -107,14 +118,37 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 			}),
 		))
 
-		//Add http handler for each function.
+		//. Set HTTP handlers and init receivers.
+		//.1 Create receivers for handlers
+		receiversCreated := make(map[string]string)
+		forEachFunction(info.Functions, func(fn *parser.Function) {
+			receiverType := fn.Receiver.Type
+			//Next function if receiver already created
+			if !hasReceiver(fn) || receiversCreated[receiverType] != "" {
+				return
+			}
+			receiverVarName := getReceiverVarName(receiverType)
+			g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, strings.Trim(receiverType, "*")).Block()
+			makeReceiverInitialization(receiverVarName, g, findInitReceiver(info.Functions, fn))
+			receiversCreated[receiverType] = receiverVarName
+		})
+		//.2 Add http handler for each function.
 		//Route format is /receiver_name/method_name
 		forEachFunction(info.Functions, func(fn *parser.Function) {
-			route := fn.Name
 			handler, _, _ := getMethodTypes(fn, "HTTP")
-			if receiver := strings.ToLower(fn.Receiver.Type); receiver != "" {
-				route = fmt.Sprintf("%s/%s", receiver, route)
+
+			//If handler has receiver
+			if hasReceiver(fn) {
+				receiverType := fn.Receiver.Type
+				route := fmt.Sprintf("%s/%s", receiverType, fn.Name)
+				g.Id("server").Dot("POST").Call(
+					Lit(toSnakeCase(route)),
+					Id(handler).Call(Id(receiversCreated[receiverType])),
+				)
+				return
 			}
+
+			route := fn.Name
 			g.Id("server").Dot("POST").Call(
 				Lit(toSnakeCase(route)),
 				Id(handler),
@@ -201,6 +235,34 @@ func makeReceiverMiddleware(recId string, scope *Group, initReceiver *parser.Fun
 		scope,
 		Err().Op(":=").Id(recId).Dot("InitReceiver").CallFunc(initReceiverCall),
 	)
+}
+
+func makeReceiverInitialization(recId string, scope *Group, initReceiver *parser.Function) {
+	if initReceiver == nil {
+		return
+	}
+	initReceiverCall := func(g *Group) {
+		for _, field := range initReceiver.Arguments {
+			name := field.Name
+			//TODO check getEnv function signature
+			//Inject getEnv function that provide access to environment variables
+			if name == "getEnv" {
+				envName := "envName"
+				g.Func().Params(Id(envName).String()).String().Block(
+					Return(Qual("os", "Getenv").Call(Id(envName))),
+				)
+			}
+		}
+	}
+
+	scope.If(
+		Err().Op(":=").Id(recId).Dot("InitReceiver").CallFunc(initReceiverCall),
+		Err().Op("!=").Nil(),
+	).Block(
+		//TODO return appropriate error here
+		Panic(Err()),
+	)
+
 }
 
 func ifErrorReturnBadRequestWithErr(scope *Group, statement *Statement) {

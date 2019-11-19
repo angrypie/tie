@@ -99,3 +99,14 @@ func toSnakeCase(str string) string {
 		matchAllCap.ReplaceAllString(str, "${1}_${2}"),
 	)
 }
+
+func getReceiverVarName(receiverTypeName string) string {
+	if receiverTypeName == "" {
+		return ""
+	}
+	return fmt.Sprintf("Receiver%s", receiverTypeName)
+}
+
+func hasReceiver(fn *parser.Function) bool {
+	return fn.Receiver.Type != ""
+}
