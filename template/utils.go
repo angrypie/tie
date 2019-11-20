@@ -2,7 +2,6 @@ package template
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 
@@ -119,7 +118,6 @@ func isTopLevelInitReceiver(fn *parser.Function) bool {
 	for _, field := range fn.Arguments {
 		name := field.Name
 		if name != "getEnv" {
-			log.Println("NOT GETENV", name)
 			return false
 		}
 	}
@@ -163,4 +161,9 @@ func getInitReceiverDepsSignature(fn *parser.Function, info *PackageInfo) (code 
 			g.Id(depVarName).Op("*").Qual(info.Service.Name, strings.Trim(t, "*"))
 		}
 	})
+}
+
+func injectOriginalMethodCall(g *Group, fn *parser.Function, method Code) {
+	g.ListFunc(createArgsListFunc(fn.Results, "response")).
+		Op("=").Add(method).Call(ListFunc(createArgsListFunc(fn.Arguments, "request")))
 }

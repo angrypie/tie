@@ -57,21 +57,14 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 		//else just call public package method
 		if hasReceiver(fn) {
 			initReceiverFunc := findInitReceiver(info.Functions, fn)
-
-			if isTopLevelInitReceiver(initReceiverFunc) {
-				g.ListFunc(createArgsListFunc(fn.Results, "response")).
-					Op("=").Id(receiverVarName).Dot(fn.Name).Call(ListFunc(createArgsListFunc(fn.Arguments, "request")))
-			} else {
+			if initReceiverFunc != nil && !isTopLevelInitReceiver(initReceiverFunc) {
 				receiverType := fn.Receiver.Type
 				g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, strings.Trim(receiverType, "*")).Block()
 				makeReceiverMiddleware(receiverVarName, g, initReceiverFunc)
 			}
-
-			g.ListFunc(createArgsListFunc(fn.Results, "response")).
-				Op("=").Id(receiverVarName).Dot(fn.Name).Call(ListFunc(createArgsListFunc(fn.Arguments, "request")))
+			injectOriginalMethodCall(g, fn, Id(receiverVarName).Dot(fn.Name))
 		} else {
-			g.ListFunc(createArgsListFunc(fn.Results, "response")).
-				Op("=").Qual(info.Service.Name, fn.Name).Call(ListFunc(createArgsListFunc(fn.Arguments, "request")))
+			injectOriginalMethodCall(g, fn, Qual(info.Service.Name, fn.Name))
 		}
 
 		ifErrorReturnBadRequestWithErr(
@@ -86,7 +79,7 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 	if hasReceiver(fn) {
 		file.Func().Id(handler).ParamsFunc(func(g *Group) {
 			initReceiverFunc := findInitReceiver(info.Functions, fn)
-			if isTopLevelInitReceiver(initReceiverFunc) {
+			if initReceiverFunc == nil || isTopLevelInitReceiver(initReceiverFunc) {
 				g.Id(receiverVarName).Op("*").Qual(info.Service.Name, strings.Trim(fn.Receiver.Type, "*"))
 			} else {
 				g.Add(getInitReceiverDepsSignature(initReceiverFunc, info))
@@ -144,7 +137,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 				return
 			}
 			initReceiverFunc := findInitReceiver(info.Functions, fn)
-			if !isTopLevelInitReceiver(initReceiverFunc) {
+			if initReceiverFunc != nil && !isTopLevelInitReceiver(initReceiverFunc) {
 				return
 			}
 			receiverVarName := getReceiverVarName(receiverType)
@@ -167,7 +160,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 				g.Id("server").Dot("POST").Call(
 					Lit(toSnakeCase(route)),
 					Id(handler).CallFunc(func(g *Group) {
-						if isTopLevelInitReceiver(initReceiverFunc) {
+						if initReceiverFunc == nil || isTopLevelInitReceiver(initReceiverFunc) {
 							g.Id(receiverVarName)
 						} else {
 							g.Add(getInitReceiverDepsNames(initReceiverFunc))
