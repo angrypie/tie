@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 
@@ -35,7 +36,7 @@ func createTypeFromArgs(name string, args []parser.Field, info *PackageInfo) Cod
 func createReqRespTypes(postfix string, info *PackageInfo) Code {
 	code := Comment(fmt.Sprintf("Request/Response types (%s)", postfix)).Line()
 
-	forEachFunction(info.Functions, func(fn *parser.Function) {
+	forEachFunction(info.Functions, true, func(fn *parser.Function) {
 		_, reqName, respName := getMethodTypes(fn, postfix)
 		code.Add(createTypeFromArgs(reqName, fn.Arguments, info))
 		code.Line()
@@ -109,4 +110,57 @@ func getReceiverVarName(receiverTypeName string) string {
 
 func hasReceiver(fn *parser.Function) bool {
 	return fn.Receiver.Type != ""
+}
+
+func isTopLevelInitReceiver(fn *parser.Function) bool {
+	if fn == nil {
+		return false
+	}
+	for _, field := range fn.Arguments {
+		name := field.Name
+		if name != "getEnv" {
+			log.Println("NOT GETENV", name)
+			return false
+		}
+	}
+	return true
+}
+
+func getInitReceiverDepsNames(fn *parser.Function) (code Code) {
+	if fn == nil {
+		return
+	}
+	return ListFunc(func(g *Group) {
+		for _, field := range fn.Arguments {
+			injectReceiverName(g, field)
+		}
+	})
+}
+
+var matchFuncType = regexp.MustCompile("^func.*")
+
+//injectReceiverName injects recevier variable name to given scope.
+func injectReceiverName(g *Group, field parser.Field) {
+	t := field.Type
+	if matchFuncType.MatchString(t) {
+		return
+	}
+	depVarName := getReceiverVarName(t)
+	g.Id(depVarName)
+}
+
+func getInitReceiverDepsSignature(fn *parser.Function, info *PackageInfo) (code Code) {
+	if fn == nil {
+		return
+	}
+	return ListFunc(func(g *Group) {
+		for _, field := range fn.Arguments {
+			t := field.Type
+			if matchFuncType.MatchString(t) {
+				return
+			}
+			depVarName := getReceiverVarName(t)
+			g.Id(depVarName).Op("*").Qual(info.Service.Name, strings.Trim(t, "*"))
+		}
+	})
 }

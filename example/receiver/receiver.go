@@ -5,7 +5,6 @@ import (
 	"log"
 )
 
-type KV = func(string) string
 type greeter struct {
 	phrase string
 }
@@ -18,6 +17,10 @@ type Provider struct {
 	greeter *greeter
 }
 
+func (p *Provider) Hello(name string) (str string, err error) {
+	return p.greeter.greet(name), nil
+}
+
 func (p *Provider) InitReceiver(getEnv func(string) string) (err error) {
 	phrase := "Hello brah"
 	log.Println("lol")
@@ -28,14 +31,15 @@ func (p *Provider) InitReceiver(getEnv func(string) string) (err error) {
 	return
 }
 
-func (p *Provider) User(getHeader string) (user *User, err error) {
-	name := getHeader
-	return &User{name, p.greeter}, nil
-}
-
 type User struct {
 	Name    string
 	greeter *greeter
+}
+
+func (user *User) InitReceiver(p *Provider, getHeader func(string) string) (err error) {
+	user.Name = getHeader("UserName")
+	user.greeter = p.greeter
+	return nil
 }
 
 func (user *User) Hello() (greeting string, err error) {
