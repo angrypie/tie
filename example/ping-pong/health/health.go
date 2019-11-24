@@ -1,4 +1,4 @@
-package helth
+package health
 
 import "log"
 

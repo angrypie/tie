@@ -1,8 +1,8 @@
 package pong
 
-import "github.com/angrypie/tie/example/ping-pong/helth"
+import "github.com/angrypie/tie/example/ping-pong/health"
 
 func Pong() (string, error) {
-	helth.Check("Pong")
+	health.Check("Pong")
 	return "pong", nil
 }

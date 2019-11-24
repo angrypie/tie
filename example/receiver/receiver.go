@@ -2,7 +2,6 @@ package receiver
 
 import (
 	"fmt"
-	"log"
 )
 
 type greeter struct {
@@ -10,7 +9,7 @@ type greeter struct {
 }
 
 func (g *greeter) greet(name string) string {
-	return fmt.Sprintf("%s %s/n", g.phrase, name)
+	return fmt.Sprintf("%s %s", g.phrase, name)
 }
 
 type Provider struct {
@@ -21,14 +20,12 @@ func (p *Provider) Hello(name string) (str string, err error) {
 	return p.greeter.greet(name), nil
 }
 
-func (p *Provider) InitReceiver(getEnv func(string) string) (err error) {
+func NewProvider(getEnv func(string) string) (p *Provider, err error) {
 	phrase := "Hello brah"
-	log.Println("lol")
 	if p := getEnv("DEFAULT_PHRASE"); p != "" {
 		phrase = p
 	}
-	p.greeter = &greeter{phrase}
-	return
+	return &Provider{&greeter{phrase}}, nil
 }
 
 type User struct {
@@ -36,10 +33,11 @@ type User struct {
 	greeter *greeter
 }
 
-func (user *User) InitReceiver(p *Provider, getHeader func(string) string) (err error) {
-	user.Name = getHeader("UserName")
-	user.greeter = p.greeter
-	return nil
+func NewUser(p *Provider, getHeader func(string) string) (user *User, err error) {
+	return &User{
+		Name:    getHeader("UserName"),
+		greeter: p.greeter,
+	}, nil
 }
 
 func (user *User) Hello() (greeting string, err error) {
