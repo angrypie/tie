@@ -134,21 +134,22 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 
 		//. Set HTTP handlers and init receivers.
 		//.1 Create receivers for handlers
-		receiversCreated := make(map[string]*parser.Function)
+		receiversProcessed := make(map[string]bool)
 		forEachFunction(info.Functions, false, func(fn *parser.Function) {
 			receiverType := fn.Receiver.Type
-			//Next function if receiver already created
-			if !hasReceiver(fn) || receiversCreated[receiverType] != nil {
+			//Skip function if it does not have receiver or receiver already created.
+			if !hasReceiver(fn) || receiversProcessed[receiverType] {
 				return
 			}
 			initReceiverFunc := findInitReceiver(info.Functions, fn)
+			receiversProcessed[receiverType] = true
+			//Skip not top level receivers.
 			if initReceiverFunc != nil && !isTopLevelInitReceiver(initReceiverFunc) {
 				return
 			}
 			receiverVarName := getReceiverVarName(receiverType)
 			g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, strings.Trim(receiverType, "*")).Block()
 			makeReceiverInitialization(receiverVarName, g, initReceiverFunc, info)
-			receiversCreated[receiverType] = initReceiverFunc
 		})
 		//.2 Add http handler for each function.
 		//Route format is /receiver_name/method_name
@@ -166,9 +167,11 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 					Lit(toSnakeCase(route)),
 					Id(handler).CallFunc(func(g *Group) {
 						if initReceiverFunc == nil || isTopLevelInitReceiver(initReceiverFunc) {
+							//Inject receiver to http handler.
 							g.Id(receiverVarName)
 						} else {
-							g.Add(getInitReceiverDepsNames(initReceiverFunc))
+							//Inject dependencies to http handler for non top level receiver.
+							g.Add(getInitReceiverDepsNames(initReceiverFunc, info))
 						}
 					}),
 				)
@@ -276,22 +279,6 @@ func injectOriginalMethodCall(g *Group, fn *parser.Function, method Code) {
 		Op("=").Add(method).Call(ListFunc(createArgsListFunc(fn.Arguments, "request")))
 }
 
-func getInitReceiverDepsSignature(fn *parser.Function, info *PackageInfo) (code Code) {
-	if fn == nil {
-		return
-	}
-	return ListFunc(func(g *Group) {
-		for _, field := range fn.Arguments {
-			t := field.Type
-			if matchFuncType.MatchString(t) {
-				return
-			}
-			depVarName := getReceiverVarName(t)
-			g.Id(depVarName).Op("*").Qual(info.Service.Name, strings.Trim(t, "*"))
-		}
-	})
-}
-
 func createTypeFromArgs(name string, args []parser.Field, info *PackageInfo) Code {
 	return Type().Id(name).StructFunc(func(g *Group) {
 		for _, arg := range args {
@@ -362,26 +349,52 @@ func createArgsList(args []parser.Field, transform func(*Statement) *Statement, 
 	}
 }
 
-func getInitReceiverDepsNames(fn *parser.Function) (code Code) {
+var matchFuncType = regexp.MustCompile("^func.*")
+
+func getInitReceiverDepsNames(fn *parser.Function, info *PackageInfo) (code Code) {
+	return getInitReceiverDeps(fn, info, func(field parser.Field, g *Group) {
+		injectReceiverName(g, field)
+	})
+}
+
+func getInitReceiverDepsSignature(fn *parser.Function, info *PackageInfo) (code Code) {
+	return getInitReceiverDeps(fn, info, func(field parser.Field, g *Group) {
+		injectReceiverName(g, field)
+		g.Op("*").Qual(info.Service.Name, strings.Trim(field.Type, "*"))
+	})
+}
+
+func getInitReceiverDeps(
+	fn *parser.Function,
+	info *PackageInfo,
+	createDep func(field parser.Field, g *Group),
+) (code Code) {
 	if fn == nil {
 		return
 	}
+	receiverTypes := make(map[string]bool)
+
+	for _, fn := range info.Functions {
+		if receiverTypes[fn.Receiver.Type] {
+			continue
+		}
+		receiverTypes[fn.Receiver.Type] = true
+	}
+
 	return ListFunc(func(g *Group) {
 		for _, field := range fn.Arguments {
-			injectReceiverName(g, field)
+			t := field.Type
+			if matchFuncType.MatchString(t) || !receiverTypes[t] {
+				return
+			}
+			createDep(field, g)
 		}
 	})
 }
 
-var matchFuncType = regexp.MustCompile("^func.*")
-
 //injectReceiverName injects recevier variable name to given scope.
 func injectReceiverName(g *Group, field parser.Field) {
-	t := field.Type
-	if matchFuncType.MatchString(t) {
-		return
-	}
-	depVarName := getReceiverVarName(t)
+	depVarName := getReceiverVarName(field.Type)
 	g.Id(depVarName)
 }
 
