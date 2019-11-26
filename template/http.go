@@ -2,12 +2,15 @@ package template
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 
 	"github.com/angrypie/tie/parser"
 	. "github.com/dave/jennifer/jen"
 )
+
+const echoPath = "github.com/labstack/echo"
 
 func makeHTTPServer(info *PackageInfo, main *Group, f *File) {
 	service := info.Service
@@ -30,7 +33,6 @@ func makeHTTPHandlers(info *PackageInfo, main *Group, f *File) {
 }
 
 func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
-	echo := "github.com/labstack/echo"
 	handler, request, response := getMethodTypes(fn, "HTTP")
 	receiverVarName := getReceiverVarName(fn.Receiver.Type)
 	handlerBody := func(g *Group) {
@@ -86,14 +88,14 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 				g.Add(getInitReceiverDepsSignature(initReceiverFunc, info))
 			}
 		}).Params(
-			Func().Params(Qual(echo, "Context")).Params(Error()),
+			Func().Params(Qual(echoPath, "Context")).Params(Error()),
 		).Block(Return(Func().
-			Params(Id("ctx").Qual(echo, "Context")).
+			Params(Id("ctx").Qual(echoPath, "Context")).
 			Params(Err().Error()).BlockFunc(handlerBody),
 		)).Line()
 	} else {
 		file.Func().Id(handler).
-			Params(Id("ctx").Qual(echo, "Context")).
+			Params(Id("ctx").Qual(echoPath, "Context")).
 			Params(Err().Error()).BlockFunc(handlerBody).
 			Line()
 	}
@@ -107,7 +109,6 @@ func makeHTTPRequestResponseTypes(info *PackageInfo, main *Group, f *File) {
 func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 	echoMiddleware := "github.com/labstack/echo/middleware"
 	rndport := "github.com/angrypie/rndport"
-	echo := "github.com/labstack/echo"
 
 	main.Go().Id("startHTTPServer").Call()
 
@@ -125,7 +126,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 			g.Id("address").Op(":=").Lit(fmt.Sprintf(":%s", port))
 		}
 
-		g.Id("server").Op(":=").Qual(echo, "New").Call()
+		g.Id("server").Op(":=").Qual(echoPath, "New").Call()
 		g.Id("server").Dot("Use").Call(Qual(echoMiddleware, "CORSWithConfig").Call(
 			Qual(echoMiddleware, "CORSConfig").Values(Dict{
 				Id("AllowOrigins"): Index().String().Values(Lit("*")),
@@ -187,7 +188,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 
 		if key := info.Service.Auth; key != "" {
 			g.Id("server").Dot("Use").Call(Qual(echoMiddleware, "KeyAuth").Call(
-				Func().Params(Id("key").String(), Id("ctx").Qual(echo, "Context")).Params(Bool(), Error()).Block(
+				Func().Params(Id("key").String(), Id("ctx").Qual(echoPath, "Context")).Params(Bool(), Error()).Block(
 					Id("auth").Op(":=").Lit(key),
 					If(
 						Id("envKey").Op(":=").Id(getEnvHelper).Call(Lit("TIE_API_KEY")),
@@ -214,10 +215,7 @@ func makeReceiverMiddleware(recId string, scope *Group, initReceiver *parser.Fun
 			//TODO check getHeader and getEnv function signature
 			//Inject getHeader function that returns header of current request
 			if name == "getHeader" {
-				headerArg := "header"
-				g.Func().Params(Id(headerArg).String()).String().Block(
-					Return(Id("ctx").Dot("Request").Call().Dot("Header").Dot("Get").Call(Id(headerArg))),
-				)
+				g.Id(getHeaderHelper).Call(Id("ctx"))
 				continue
 			}
 			//Inject getEnv function that provide access to environment variables
@@ -226,8 +224,16 @@ func makeReceiverMiddleware(recId string, scope *Group, initReceiver *parser.Fun
 				continue
 			}
 
+			receivers := getReceiverTypesMap(info.Functions)
+
+			//TODO send nil for pointer or empty object otherwise
+			if !receivers[field.Type] {
+				g.Nil()
+				continue
+			}
+
 			//Oterwise inject receiver dependencie
-			injectReceiverName(g, field)
+			g.Id(getReceiverVarName(field.Type))
 		}
 	}
 
@@ -321,18 +327,26 @@ func createArgsListFunc(args []parser.Field, params ...string) func(*Group) {
 	}, params...)
 }
 
-func createArgsList(args []parser.Field, transform func(*Statement) *Statement, params ...string) func(*Group) {
-	prefix, typeNames := "", ""
+//createArgsList creates list from parser.Field array.
+//Transform function are used to modify each element list.
+//Optional param 1 is used to specify prefix for each element.
+//Optional param 2 is used to specify allowed argument types (format: type1,type2,).
+func createArgsList(
+	args []parser.Field,
+	transform func(*Statement) *Statement,
+	params ...string,
+) func(*Group) {
+	prefix, onlyTypes := "", ""
 	if len(params) > 0 {
 		prefix = params[0]
 	}
 	if len(params) > 1 {
-		typeNames = params[1]
+		onlyTypes = params[1]
 	}
 	return func(g *Group) {
 		for _, arg := range args {
-			//Skip iteration if argument type not specified
-			if typeNames != "" && !strings.Contains(typeNames, arg.Type+",") {
+			//Skip iteration if arg has type that not in onlyTypes (if it is not empty).
+			if onlyTypes != "" && !strings.Contains(onlyTypes, arg.Type+",") {
 				continue
 			}
 			if isArgNameAreDTO(arg.Name) && prefix != "" {
@@ -353,14 +367,13 @@ var matchFuncType = regexp.MustCompile("^func.*")
 
 func getInitReceiverDepsNames(fn *parser.Function, info *PackageInfo) (code Code) {
 	return getInitReceiverDeps(fn, info, func(field parser.Field, g *Group) {
-		injectReceiverName(g, field)
+		g.Id(getReceiverVarName(field.Type))
 	})
 }
 
 func getInitReceiverDepsSignature(fn *parser.Function, info *PackageInfo) (code Code) {
 	return getInitReceiverDeps(fn, info, func(field parser.Field, g *Group) {
-		injectReceiverName(g, field)
-		g.Op("*").Qual(info.Service.Name, strings.Trim(field.Type, "*"))
+		g.Id(getReceiverVarName(field.Type)).Op("*").Qual(info.Service.Name, strings.Trim(field.Type, "*"))
 	})
 }
 
@@ -372,34 +385,35 @@ func getInitReceiverDeps(
 	if fn == nil {
 		return
 	}
-	receiverTypes := make(map[string]bool)
 
-	for _, fn := range info.Functions {
-		if receiverTypes[fn.Receiver.Type] {
-			continue
-		}
-		receiverTypes[fn.Receiver.Type] = true
-	}
+	receiverTypes := getReceiverTypesMap(info.Functions)
 
 	return ListFunc(func(g *Group) {
 		for _, field := range fn.Arguments {
 			t := field.Type
+			log.Println(!receiverTypes[t], t)
 			if matchFuncType.MatchString(t) || !receiverTypes[t] {
-				return
+				continue
 			}
 			createDep(field, g)
 		}
 	})
 }
 
-//injectReceiverName injects recevier variable name to given scope.
-func injectReceiverName(g *Group, field parser.Field) {
-	depVarName := getReceiverVarName(field.Type)
-	g.Id(depVarName)
+func getReceiverTypesMap(fns []*parser.Function) map[string]bool {
+	receivers := make(map[string]bool)
+	for _, fn := range fns {
+		if !hasReceiver(fn) || receivers[fn.Receiver.Type] {
+			continue
+		}
+		receivers[fn.Receiver.Type] = true
+	}
+	return receivers
 }
 
 const getEnvHelper = "getEnvHelper"
 const firstNotEmptyStrHelper = "firstNotEmptyStrHelper"
+const getHeaderHelper = "getHeaderHelper"
 
 func makeHelpers(info *PackageInfo, main *Group, f *File) {
 	f.Func().Id(getEnvHelper).Params(Id("envName").String()).String().Block(
@@ -409,5 +423,17 @@ func makeHelpers(info *PackageInfo, main *Group, f *File) {
 	f.Func().Id(firstNotEmptyStrHelper).Params(Id("a"), Id("b").String()).String().Block(
 		If(Id("a").Op("!=").Lit("")).Block(Return(Id("a"))),
 		Return(Id("b")),
+	)
+
+	f.Func().Id(getHeaderHelper).
+		Params(Id("ctx").Qual(echoPath, "Context")).
+		Func().Params(String()).String().Block(
+		Return(
+			Func().Params(Id("headerName").String()).String().Block(
+				Return(
+					Id("ctx").Dot("Request").Call().Dot("Header").Dot("Get").Call(Id("headerName")),
+				),
+			),
+		),
 	)
 }
