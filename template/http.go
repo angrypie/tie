@@ -36,21 +36,19 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 	receiverVarName := getReceiverVarName(fn.Receiver.Type)
 	handlerBody := func(g *Group) {
 		//Bind request params
-		if len(fn.Arguments) > 0 {
-			g.Id("request").Op(":=").New(Id(request))
-			g.List(Id("_"), ListFunc(createArgsListFunc(fn.Arguments, "request", "string,"))).Op("=").
-				List(Lit(0), ListFunc(createArgsList(fn.Arguments, func(arg *Statement) *Statement {
-					return Id(firstNotEmptyStrHelper).Call(
-						Id("request").Dot(arg.GoString()),
-						Id("ctx").Dot("QueryParam").Call(Lit(strings.ToLower(arg.GoString()))),
-					)
-				}, "", "string,")))
-			g.If(
-				Err().Op(":=").Id("ctx").Dot("Bind").Call(Id("request")),
-				Err().Op("!=").Nil(),
-			).Block(Return(Err()))
-			//Empty argument needs to avoid errors if no other arguments exist
-		}
+		//Empty argument needs to avoid errors if no other arguments exist
+		g.Id("request").Op(":=").New(Id(request))
+		g.List(Id("_"), ListFunc(createArgsListFunc(fn.Arguments, "request", "string,"))).Op("=").
+			List(Lit(0), ListFunc(createArgsList(fn.Arguments, func(arg *Statement) *Statement {
+				return Id(firstNotEmptyStrHelper).Call(
+					Id("request").Dot(arg.GoString()),
+					Id("ctx").Dot("QueryParam").Call(Lit(strings.ToLower(arg.GoString()))),
+				)
+			}, "", "string,")))
+		g.If(
+			Err().Op(":=").Id("ctx").Dot("Bind").Call(Id("request")),
+			Err().Op("!=").Nil(),
+		).Block(Return(Err()))
 
 		//Call original function
 		g.Id("response").Op(":=").New(Id(response))
@@ -225,7 +223,8 @@ func makeReceiverMiddleware(recId string, scope *Group, constructor *parser.Func
 
 			//TODO send nil for pointer or empty object otherwise
 			if !info.IsReceiverType(field.Type) {
-				g.Nil()
+				//g.Id("request").Dot(field.Name)
+				g.ListFunc(createArgsListFunc([]parser.Field{field}, "request"))
 				continue
 			}
 
@@ -317,8 +316,19 @@ func createReqRespTypes(postfix string, info *PackageInfo) Code {
 	code := Comment(fmt.Sprintf("Request/Response types (%s)", postfix)).Line()
 
 	forEachFunction(info, true, func(fn *parser.Function) {
+		arguments := fn.Arguments
+		cons := info.GetConstructor(fn.Receiver.Type)
+		if cons != nil && !hasTopLevelReceiver(cons, info) {
+			for _, arg := range cons.Arguments {
+				if info.IsReceiverType(arg.Type) {
+					continue
+				}
+				arguments = append(arguments, arg)
+			}
+		}
+
 		_, reqName, respName := getMethodTypes(fn, postfix)
-		code.Add(createTypeFromArgs(reqName, fn.Arguments, info))
+		code.Add(createTypeFromArgs(reqName, arguments, info))
 		code.Line()
 		code.Add(createTypeFromArgs(respName, fn.Results, info))
 		code.Line()
