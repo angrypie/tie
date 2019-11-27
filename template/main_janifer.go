@@ -65,9 +65,19 @@ func makeGracefulShutdown(info *PackageInfo, g *Group, f *File) {
 
 type PackageInfo struct {
 	Functions     []*parser.Function
+	Constructors  map[string]*parser.Function
 	IsInitService bool
 	IsStopService bool
 	Service       *types.Service
+}
+
+func (info *PackageInfo) IsReceiverType(t string) bool {
+	_, ok := info.Constructors[t]
+	return ok
+}
+
+func (info *PackageInfo) GetConstructor(t string) *parser.Function {
+	return info.Constructors[t]
 }
 
 func NewPackageInfoFromParser(p *parser.Parser) (*PackageInfo, error) {
@@ -84,8 +94,9 @@ func NewPackageInfoFromParser(p *parser.Parser) (*PackageInfo, error) {
 	}
 
 	info := PackageInfo{
-		Functions: fns,
-		Service:   p.Service,
+		Functions:    fns,
+		Service:      p.Service,
+		Constructors: make(map[string]*parser.Function),
 	}
 
 	for _, fn := range functions {
@@ -95,6 +106,10 @@ func NewPackageInfoFromParser(p *parser.Parser) (*PackageInfo, error) {
 		if fn.Name == "StopService" {
 			info.IsStopService = true
 		}
+		if _, ok := info.Constructors[fn.Receiver.Type]; !hasReceiver(fn) || ok {
+			continue
+		}
+		info.Constructors[fn.Receiver.Type] = findConstructor(functions, fn)
 	}
 
 	return &info, nil

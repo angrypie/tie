@@ -40,22 +40,23 @@ func hasReceiver(fn *parser.Function) bool {
 	return fn.Receiver.Type != ""
 }
 
-func isTopLevelInitReceiver(fn *parser.Function) bool {
+//hasTopLevelReceiver returns true if construcotor has other receiver as argumenet.
+func hasTopLevelReceiver(fn *parser.Function, info *PackageInfo) bool {
 	if fn == nil {
 		return false
 	}
 	for _, field := range fn.Arguments {
-		name := field.Name
-		if name != "getEnv" {
+		if _, ok := info.Constructors[field.Type]; ok {
 			return false
 		}
 	}
 	return true
 }
 
-func forEachFunction(fns []*parser.Function, skipInit bool, cb func(*parser.Function)) {
+func forEachFunction(info *PackageInfo, skipInit bool, cb func(*parser.Function)) {
+	fns := info.Functions
 	if skipInit {
-		fns = removeConstructors(fns)
+		fns = getFnsWithoutConstructors(info)
 	}
 	for _, fn := range fns {
 		cb(fn)
@@ -63,21 +64,18 @@ func forEachFunction(fns []*parser.Function, skipInit bool, cb func(*parser.Func
 
 }
 
-//removeConstructors removes type constructors
-func removeConstructors(fns []*parser.Function) (filtered []*parser.Function) {
-	processed := map[string]bool{"": true}
-	inits := make(map[*parser.Function]bool)
-	for _, fn := range fns {
-		//Do not search contructor for already processed receiver.
-		if processed[fn.Receiver.Type] {
-			continue
-		}
-		//Save function that is contructor for type.
-		processed[fn.Receiver.Type], inits[findInitReceiver(fns, fn)] = true, true
+//getFnsWithoutConstructors removes type constructors
+func getFnsWithoutConstructors(info *PackageInfo) (filtered []*parser.Function) {
+	fns := info.Functions
+
+	//Get all constructors
+	constructors := make(map[*parser.Function]bool)
+	for _, fn := range info.Constructors {
+		constructors[fn] = true
 	}
 
 	for _, fn := range fns {
-		if !inits[fn] {
+		if !constructors[fn] {
 			filtered = append(filtered, fn)
 		}
 	}
@@ -93,8 +91,8 @@ func createIsConstructor(typeName string) func(funcName string) bool {
 	}
 }
 
-//findInitReceiver find conventional contructor for function receiver type.
-func findInitReceiver(fns []*parser.Function, forFunc *parser.Function) *parser.Function {
+//findConstructor find conventional contructor for function receiver type.
+func findConstructor(fns []*parser.Function, forFunc *parser.Function) *parser.Function {
 	isContsructor := createIsConstructor(forFunc.Receiver.Type)
 
 	for _, fn := range fns {
