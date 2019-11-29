@@ -106,10 +106,15 @@ func NewPackageInfoFromParser(p *parser.Parser) (*PackageInfo, error) {
 		if fn.Name == "StopService" {
 			info.IsStopService = true
 		}
-		if _, ok := info.Constructors[fn.Receiver.Type]; !hasReceiver(fn) || ok {
+
+		if _, ok := info.Constructors[fn.Receiver.Type]; ok {
 			continue
 		}
-		info.Constructors[fn.Receiver.Type] = findConstructor(functions, fn)
+
+		ok, receiverType := isConventionalConstructor(fn)
+		if ok {
+			info.Constructors[receiverType] = fn
+		}
 	}
 
 	return &info, nil

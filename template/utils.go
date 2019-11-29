@@ -82,23 +82,21 @@ func getFnsWithoutConstructors(info *PackageInfo) (filtered []*parser.Function) 
 	return
 }
 
-//createIsConstructor returns function that checks if function name is type contructor.
-func createIsConstructor(typeName string) func(funcName string) bool {
-	reg := fmt.Sprintf(`\ANew%s\z`, typeName)
-	return func(funcName string) bool {
-		match, _ := regexp.MatchString(reg, funcName)
-		return match
-	}
-}
+var getTypeFromConstructorName = regexp.MustCompile(`\ANew(.*)\z`)
 
-//findConstructor find conventional contructor for function receiver type.
-func findConstructor(fns []*parser.Function, forFunc *parser.Function) *parser.Function {
-	isContsructor := createIsConstructor(forFunc.Receiver.Type)
-
-	for _, fn := range fns {
-		if !hasReceiver(fn) && isContsructor(fn.Name) {
-			return fn
-		}
+func isConventionalConstructor(fn *parser.Function) (ok bool, _type string) {
+	if hasReceiver(fn) {
+		return
 	}
-	return nil
+
+	rets := make(map[string]bool)
+	for _, ret := range fn.Results {
+		rets[ret.Type] = true
+	}
+	match := getTypeFromConstructorName.FindStringSubmatch(fn.Name)
+	if len(match) < 2 {
+		return
+	}
+
+	return rets[match[1]], match[1]
 }

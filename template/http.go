@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 
@@ -133,13 +134,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 		//. Set HTTP handlers and init receivers.
 		//.1 Create receivers for handlers
 		receiversProcessed := make(map[string]bool)
-		forEachFunction(info, false, func(fn *parser.Function) {
-			receiverType := fn.Receiver.Type
-			//Skip function if it does not have receiver or receiver already created.
-			if !hasReceiver(fn) || receiversProcessed[receiverType] {
-				return
-			}
-			constructorFunc := info.GetConstructor(fn.Receiver.Type)
+		createReceivers := func(receiverType string, constructorFunc *parser.Function) {
 			receiversProcessed[receiverType] = true
 			//Skip not top level receivers.
 			if constructorFunc != nil && !hasTopLevelReceiver(constructorFunc, info) {
@@ -148,7 +143,24 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 			receiverVarName := getReceiverVarName(receiverType)
 			g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, strings.Trim(receiverType, "*")).Block()
 			makeReceiverInitialization(receiverVarName, g, constructorFunc, info)
+		}
+		//Create receivers for each constructor
+		log.Println("len", len(info.Constructors))
+		for t, c := range info.Constructors {
+			log.Println(t, c)
+			createReceivers(t, c)
+		}
+		//Create receivers that does not have constructor
+		forEachFunction(info, false, func(fn *parser.Function) {
+			receiverType := fn.Receiver.Type
+			//Skip function if it does not have receiver or receiver already created.
+			if !hasReceiver(fn) || receiversProcessed[receiverType] {
+				return
+			}
+			constructorFunc := info.GetConstructor(fn.Receiver.Type)
+			createReceivers(receiverType, constructorFunc)
 		})
+
 		//.2 Add http handler for each function.
 		//Route format is /receiver_name/method_name
 		forEachFunction(info, true, func(fn *parser.Function) {
@@ -240,6 +252,7 @@ func makeReceiverMiddleware(recId string, scope *Group, constructor *parser.Func
 }
 
 func makeReceiverInitialization(recId string, scope *Group, constructor *parser.Function, info *PackageInfo) {
+	log.Println("===", constructor)
 	if constructor == nil {
 		return
 	}
@@ -410,17 +423,6 @@ func getConstructorDeps(
 			createDep(field, g)
 		}
 	})
-}
-
-func getReceiverTypesMap(fns []*parser.Function) map[string]bool {
-	receivers := make(map[string]bool)
-	for _, fn := range fns {
-		if !hasReceiver(fn) || receivers[fn.Receiver.Type] {
-			continue
-		}
-		receivers[fn.Receiver.Type] = true
-	}
-	return receivers
 }
 
 const getEnvHelper = "getEnvHelper"
