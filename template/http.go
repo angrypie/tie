@@ -2,7 +2,6 @@ package template
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 
@@ -145,9 +144,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 			makeReceiverInitialization(receiverVarName, g, constructorFunc, info)
 		}
 		//Create receivers for each constructor
-		log.Println("len", len(info.Constructors))
 		for t, c := range info.Constructors {
-			log.Println(t, c)
 			createReceivers(t, c)
 		}
 		//Create receivers that does not have constructor
@@ -252,7 +249,6 @@ func makeReceiverMiddleware(recId string, scope *Group, constructor *parser.Func
 }
 
 func makeReceiverInitialization(recId string, scope *Group, constructor *parser.Function, info *PackageInfo) {
-	log.Println("===", constructor)
 	if constructor == nil {
 		return
 	}
