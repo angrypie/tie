@@ -100,3 +100,20 @@ func isConventionalConstructor(fn *parser.Function) (ok bool, _type string) {
 
 	return rets[match[1]], match[1]
 }
+
+//createCombinedHandlerArgs creates handler arguments that consists of
+//original method and constructor arguments (without helpers arguments).
+func createCombinedHandlerArgs(fn *parser.Function, info *PackageInfo) []parser.Field {
+	arguments := fn.Arguments
+	cons := info.GetConstructor(fn.Receiver.Type)
+	if cons != nil && !hasTopLevelReceiver(cons, info) {
+		for _, arg := range cons.Arguments {
+			//Don't include heplers
+			if info.IsReceiverType(arg.Type) || arg.Name == "getHeader" || arg.Name == "getEnv" {
+				continue
+			}
+			arguments = append(arguments, arg)
+		}
+	}
+	return arguments
+}
