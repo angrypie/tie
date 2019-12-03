@@ -59,6 +59,9 @@ func forEachFunction(info *PackageInfo, skipInit bool, cb func(*parser.Function)
 		fns = getFnsWithoutConstructors(info)
 	}
 	for _, fn := range fns {
+		if fn.Name == "Stop" {
+			continue
+		}
 		cb(fn)
 	}
 

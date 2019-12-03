@@ -44,6 +44,10 @@ func makeGracefulShutdown(info *PackageInfo, g *Group, f *File) {
 	functionName := "gracefulShutDown"
 	g.Id(functionName).Call()
 
+	f.Type().Id("stoppable").Interface(Id("Stop").Params().Error())
+
+	f.Var().Id("stoppableServices").Index().Id("stoppable")
+
 	f.Func().Id(functionName).Params().Block(
 		Id("sigChan").Op(":=").Make(Chan().Qual("os", "Signal")),
 		Qual("os/signal", "Notify").Call(Id("sigChan"), Qual("syscall", "SIGTERM")),
@@ -58,6 +62,11 @@ func makeGracefulShutdown(info *PackageInfo, g *Group, f *File) {
 					Qual("log", "Println").Call(List(Lit("ERR failed to stop service"), Err())),
 				)
 			}
+
+			g.For().List(Id("_"), Id("service")).Op(":=").Range().Id("stoppableServices").Block(
+				Id("service").Dot("Stop").Call(),
+			)
+
 			g.Qual("os", "Exit").Call(Lit(0))
 		}).Call(),
 	)

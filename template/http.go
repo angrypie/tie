@@ -282,6 +282,13 @@ func makeReceiverInitialization(recId string, scope *Group, constructor *parser.
 		Panic(Err()),
 	)
 
+	for _, fn := range info.Functions {
+		if fn.Name == "Stop" && info.GetConstructor(fn.Receiver.Type) == constructor {
+			scope.Id("stoppableServices").Op("=").Append(Id("stoppableServices"), Id(recId))
+			return
+		}
+	}
+
 }
 
 func ifErrorReturnBadRequestWithErr(scope *Group, statement *Statement) {
