@@ -16,7 +16,7 @@ func main() {
 	app.UsageText = "Use inside directory with tiel.yml or let tie decide automaticaly"
 	app.Action = defaultCommand
 
-	app.Commands = []cli.Command{
+	app.Commands = []*cli.Command{
 		{
 			Name:   "clean",
 			Usage:  "Clean binaries",
