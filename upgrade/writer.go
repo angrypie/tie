@@ -35,12 +35,14 @@ func writeHelper(path, dir string, files ...[]byte) error {
 func (upgrader *Upgrader) Write() error {
 	path := upgrader.Parser.Package.Path
 
-	err := writeHelper(path, "tie_server", upgrader.Server.Bytes())
-	if err != nil {
-		return err
+	for key, value := range upgrader.Server {
+		err := writeHelper(path, "tie_server_"+key, value.Bytes())
+		if err != nil {
+			return err
+		}
 	}
 
-	err = writeHelper(path, "tie_upgraded", upgrader.Parser.ToFiles()...)
+	err := writeHelper(path, "tie_upgraded", upgrader.Parser.ToFiles()...)
 	if err != nil {
 		return err
 	}
@@ -57,7 +59,8 @@ func (upgrader *Upgrader) Write() error {
 func (upgrader *Upgrader) Clean() error {
 	fs := afero.NewOsFs()
 	path := upgrader.Parser.Package.Path
-	tmpDirs := []string{"tie_server", "tie_client", "tie_upgraded"}
+	tmpDirs := []string{"tie_client", "tie_upgraded"}
+	tmpDirs = append(tmpDirs, upgrader.serverModulesDirs()...)
 
 	for _, dir := range tmpDirs {
 		if err := fs.RemoveAll(fmt.Sprintf("%s/%s", path, dir)); err != nil {

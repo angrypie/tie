@@ -1,6 +1,8 @@
 package upgrade
 
 import (
+	"bytes"
+
 	"github.com/angrypie/tie/parser"
 	"github.com/angrypie/tie/template"
 )
@@ -22,7 +24,7 @@ func (upgrader *Upgrader) initServerUpgrade(p *parser.Parser) error {
 		return err
 	}
 
-	upgrader.Server.Write(serverHeader)
+	upgrader.Server["rpc"] = bytes.NewBuffer(serverHeader)
 	if err != nil {
 		return err
 	}
@@ -47,7 +49,7 @@ func (upgrader *Upgrader) addServerMain(p *parser.Parser, functions []*parser.Fu
 		return err
 	}
 
-	upgrader.Server.Write(main)
+	upgrader.Server["rpc"].Write(main)
 	if err != nil {
 		return err
 	}
@@ -67,7 +69,7 @@ func (upgrader *Upgrader) addApiEndpoint(function *parser.Function) error {
 		return err
 	}
 
-	_, err = upgrader.Server.Write(wrapper)
+	_, err = upgrader.Server["rpc"].Write(wrapper)
 	if err != nil {
 		return err
 	}

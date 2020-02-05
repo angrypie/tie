@@ -8,10 +8,23 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
-func GetServerMain(info *PackageInfo) (string, error) {
+func GetMainPackage(packagePath string, modules []string) (data string, err error) {
 	f := NewFile("main")
 
 	f.Func().Id("main").Params().BlockFunc(func(g *Group) {
+		for _, module := range modules {
+			path := fmt.Sprintf("%s/%s", packagePath, module)
+			g.Qual(path, "Main").Call()
+		}
+	})
+
+	return fmt.Sprintf("%#v", f), nil
+}
+
+func GetServerMain(info *PackageInfo) (string, error) {
+	f := NewFile("http")
+
+	f.Func().Id("Main").Params().BlockFunc(func(g *Group) {
 		makeGracefulShutdown(info, g, f)
 		makeInitService(info, g, f)
 

@@ -14,7 +14,7 @@ type Upgrader struct {
 	//RPC API client package
 	Client bytes.Buffer
 	//RPC or/and HTTP API server package
-	Server bytes.Buffer
+	Server map[string]*bytes.Buffer
 	//Original package with replaced import.
 	Service       bytes.Buffer
 	Pkg           string
@@ -28,6 +28,7 @@ func NewUpgrader(service types.Service) *Upgrader {
 		Pkg:           service.Name,
 		ServiceConfig: &service,
 		Parser:        parser.NewParser(&service),
+		Server:        make(map[string]*bytes.Buffer),
 	}
 }
 
@@ -72,6 +73,8 @@ func (upgrader *Upgrader) Replace(imports []string) error {
 //Make builds client, server, service packages to buffers using tempaltes
 func (upgrader *Upgrader) Make() (err error) {
 	p := upgrader.Parser
+	//TODO create subpackage for each upgrader
+
 	if upgrader.Parser.Service.Type == "httpOnly" {
 		info, err := template.NewPackageInfoFromParser(p)
 		if err != nil {
@@ -82,36 +85,45 @@ func (upgrader *Upgrader) Make() (err error) {
 			return err
 		}
 
-		_, err = upgrader.Server.WriteString(serverStr)
+		upgrader.Server["http"] = bytes.NewBufferString(serverStr)
+	} else {
+		functions, err := p.GetFunctions()
 		if err != nil {
 			return err
 		}
-		return nil
-	}
-
-	functions, err := p.GetFunctions()
-	if err != nil {
-		return err
-	}
-	err = upgrader.initServerUpgrade(p)
-	if err != nil {
-		return err
-	}
-
-	for _, function := range functions {
-		if name := function.Name; name == "StopService" {
-			continue
+		err = upgrader.initServerUpgrade(p)
+		if err != nil {
+			return err
 		}
-		err = upgrader.addApiEndpoint(function)
+
+		for _, function := range functions {
+			if name := function.Name; name == "StopService" {
+				continue
+			}
+			err = upgrader.addApiEndpoint(function)
+			if err != nil {
+				return err
+			}
+		}
+		err = upgrader.addServerMain(p, functions)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = upgrader.addServerMain(p, functions)
+	main, err := template.GetMainPackage(upgrader.Parser.Service.Name, upgrader.serverModulesDirs())
 	if err != nil {
 		return err
 	}
+
+	upgrader.Server["main"] = bytes.NewBufferString(main)
 
 	return err
+}
+
+func (upgrader Upgrader) serverModulesDirs() (modules []string) {
+	for module, _ := range upgrader.Server {
+		modules = append(modules, "tie_server_"+module)
+	}
+	return
 }
