@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -35,8 +34,7 @@ func main() {
 func defaultCommand(c *cli.Context) error {
 	err := tasks.ReadConfigFile(".")
 	if err != nil {
-		if err.Error() != "Cant read file" {
-			log.Println(err)
+		if err != tasks.ErrConfigNotFound {
 			return err
 		}
 		fmt.Println("Can't find tie.yml in current directory")

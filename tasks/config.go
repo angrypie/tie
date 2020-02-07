@@ -16,13 +16,15 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+var ErrConfigNotFound = errors.New("config not found")
+
 //ReadConfigFile trying to find tie.yml in specified direcotry
 func ReadConfigFile(dest string) error {
 	fs := afero.NewOsFs()
 	configPath := fmt.Sprintf("%s/tie.yml", dest)
 	buf, err := afero.ReadFile(fs, configPath)
 	if err != nil {
-		return errors.New("cant read file")
+		return ErrConfigNotFound
 	}
 
 	return configFromYaml(buf, dest)
