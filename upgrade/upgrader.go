@@ -122,7 +122,7 @@ func (upgrader *Upgrader) Make() (err error) {
 }
 
 func (upgrader Upgrader) serverModulesDirs() (modules []string) {
-	for module, _ := range upgrader.Server {
+	for module := range upgrader.Server {
 		modules = append(modules, "tie_server_"+module)
 	}
 	return

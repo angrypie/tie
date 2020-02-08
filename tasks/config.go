@@ -113,7 +113,12 @@ func withConfigFile(c *types.ConfigFile) error {
 		if err != nil {
 			return err
 		}
-		defer upgrader.Clean()
+		defer func() {
+			err := upgrader.Clean()
+			if err != nil {
+				fmt.Println("Failed to clean upgrader", err)
+			}
+		}()
 		upgraders = append(upgraders, upgrader)
 	}
 
