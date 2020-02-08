@@ -33,9 +33,9 @@ type User struct {
 	greeter *greeter
 }
 
-func NewUser(identity *Identity, p *Provider, getHeader func(string) string) (user *User, err error) {
+func NewUser(identity *Identity, p *Provider, name string) (user *User, err error) {
 	return &User{
-		Name:    getHeader("UserName"),
+		Name:    name,
 		greeter: p.greeter,
 	}, nil
 }

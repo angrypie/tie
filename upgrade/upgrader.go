@@ -87,28 +87,15 @@ func (upgrader *Upgrader) Make() (err error) {
 
 		upgrader.Server["http"] = bytes.NewBufferString(serverStr)
 	} else {
-		functions, err := p.GetFunctions()
+		info, err := template.NewPackageInfoFromParser(p)
 		if err != nil {
 			return err
 		}
-		err = upgrader.initServerUpgrade(p)
+		serverStr, err := template.GetRpcServerMain(info)
 		if err != nil {
 			return err
 		}
-
-		for _, function := range functions {
-			if name := function.Name; name == "StopService" {
-				continue
-			}
-			err = upgrader.addApiEndpoint(function)
-			if err != nil {
-				return err
-			}
-		}
-		err = upgrader.addServerMain(p, functions)
-		if err != nil {
-			return err
-		}
+		upgrader.Server["rpc"] = bytes.NewBufferString(serverStr)
 	}
 
 	main, err := template.GetMainPackage(upgrader.Parser.Service.Name, upgrader.serverModulesDirs())

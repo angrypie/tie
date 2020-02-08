@@ -1,4 +1,4 @@
 services:
   - name: 'github.com/angrypie/tie/example/receiver'
-    type: 'httpOnly'
+    type: 'rpc'
     port: '8111'

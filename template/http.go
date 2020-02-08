@@ -62,7 +62,7 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 			constructorFunc := info.GetConstructor(fn.Receiver.Type)
 			if constructorFunc != nil && !hasTopLevelReceiver(constructorFunc, info) {
 				receiverType := fn.Receiver.Type
-				g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, strings.Trim(receiverType, "*")).Block()
+				g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, trimPrefix(receiverType)).Block()
 				makeReceiverMiddleware(receiverVarName, g, constructorFunc, info)
 			}
 			injectOriginalMethodCall(g, fn, Id(receiverVarName).Dot(fn.Name))
@@ -83,7 +83,7 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 		file.Func().Id(handler).ParamsFunc(func(g *Group) {
 			constructorFunc := info.GetConstructor(fn.Receiver.Type)
 			if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
-				g.Id(receiverVarName).Op("*").Qual(info.Service.Name, strings.Trim(fn.Receiver.Type, "*"))
+				g.Id(receiverVarName).Op("*").Qual(info.Service.Name, trimPrefix(fn.Receiver.Type))
 			} else {
 				g.Add(getConstructorDepsSignature(constructorFunc, info))
 			}
@@ -143,7 +143,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 				return
 			}
 			receiverVarName := getReceiverVarName(receiverType)
-			g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, strings.Trim(receiverType, "*")).Block()
+			g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, trimPrefix(receiverType)).Block()
 			makeReceiverInitialization(receiverVarName, g, constructorFunc, info)
 		}
 		//Create receivers for each constructor
@@ -398,7 +398,7 @@ func getConstructorDepsNames(fn *parser.Function, info *PackageInfo) (code Code)
 
 func getConstructorDepsSignature(fn *parser.Function, info *PackageInfo) (code Code) {
 	return getConstructorDeps(fn, info, func(field parser.Field, g *Group) {
-		g.Id(getReceiverVarName(field.Type)).Op("*").Qual(info.Service.Name, strings.Trim(field.Type, "*"))
+		g.Id(getReceiverVarName(field.Type)).Op("*").Qual(info.Service.Name, trimPrefix(field.Type))
 	})
 }
 
@@ -447,4 +447,8 @@ func makeHelpers(info *PackageInfo, main *Group, f *File) {
 			),
 		),
 	)
+}
+
+func trimPrefix(str string) string {
+	return strings.TrimPrefix(str, "*")
 }
