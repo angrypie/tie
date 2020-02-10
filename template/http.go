@@ -150,6 +150,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 		for t, c := range info.Constructors {
 			createReceivers(t, c)
 		}
+		//TODO
 		//Create receivers that does not have constructor
 		forEachFunction(info, false, func(fn *parser.Function) {
 			receiverType := fn.Receiver.Type
@@ -157,8 +158,8 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 			if !hasReceiver(fn) || receiversProcessed[receiverType] {
 				return
 			}
-			constructorFunc := info.GetConstructor(fn.Receiver.Type)
-			createReceivers(receiverType, constructorFunc)
+			//It will not create constructor call due constructor func is nil
+			createReceivers(receiverType, nil)
 		})
 
 		//.2 Add http handler for each function.

@@ -16,6 +16,7 @@ func GetRpcServerMain(info *PackageInfo) (string, error) {
 
 		makeRPCServer(info, g, f)
 		makeWaitGuard(g)
+		makeHelpers(info, g, f)
 	})
 
 	return fmt.Sprintf("%#v", f), nil
@@ -27,9 +28,88 @@ func makeRPCServer(info *PackageInfo, main *Group, f *File) {
 		return
 	}
 
+	makeStartRPCServer(info, main, f)
 	makeRPCRequestResponseTypes(info, main, f)
 	makeRPCHandlers(info, main, f)
 
+}
+
+func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
+	rpcxServer := "github.com/smallnest/rpcx/server"
+	rndport := "github.com/angrypie/rndport"
+
+	main.Go().Id("startRPCServer").Call()
+
+	f.Func().Id("startRPCServer").Params().BlockFunc(func(g *Group) {
+		//Declare err and get rid of ''unused' error.
+		g.Var().Err().Error()
+		g.Id("_").Op("=").Err()
+
+		port := info.Service.Port
+		if port == "" {
+			g.List(Id("address"), Err()).Op(":=").
+				Qual(rndport, "GetAddress").Call(Lit(":%d"))
+			g.If(Err().Op("!=").Nil()).Block(Panic(Err()))
+		} else {
+			g.Id("address").Op(":=").Lit(fmt.Sprintf(":%s", port))
+		}
+
+		//. Set HTTP handlers and init receivers.
+		//.1 Create receivers for handlers
+		receiversProcessed := make(map[string]bool)
+		receiversCreated := make(map[string]bool) //RC
+		createReceivers := func(receiverType string, constructorFunc *parser.Function) {
+			receiversProcessed[receiverType] = true
+			//Skip not top level receivers.
+			if constructorFunc != nil && !hasTopLevelReceiver(constructorFunc, info) {
+				return
+			}
+			receiversCreated[receiverType] = true
+			receiverVarName := getReceiverVarName(receiverType)
+			g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, trimPrefix(receiverType)).Block()
+			makeReceiverInitialization(receiverVarName, g, constructorFunc, info)
+		}
+		//Create receivers for each constructor
+		for t, c := range info.Constructors {
+			createReceivers(t, c)
+		}
+
+		//Create receivers that does not have constructor
+		forEachFunction(info, false, func(fn *parser.Function) {
+			receiverType := fn.Receiver.Type
+			//Skip function if it does not have receiver or receiver already created.
+			if !hasReceiver(fn) || receiversProcessed[receiverType] {
+				return
+			}
+			//It will not create constructor call due constructor func is nil
+			createReceivers(receiverType, nil)
+		})
+
+		//RC replace http server init
+		resourceName := getRPCResourceName(info)
+		resourceInstance := "Instance__" + resourceName
+
+		f.Type().Id(resourceName).StructFunc(func(g *Group) {
+
+			for receiverType := range receiversCreated {
+				receiverVarName := getReceiverVarName(receiverType)
+				g.Id(receiverVarName).Op("*").Qual(info.Service.Name, trimPrefix(receiverType))
+			}
+		})
+
+		g.Id("server").Op(":=").Qual(rpcxServer, "NewServer").Call()
+		g.Id(resourceInstance).Op(":=").Op("&").Id(resourceName).Values(DictFunc(func(d Dict) {
+			for receiverType := range receiversCreated {
+				receiverVarName := getReceiverVarName(receiverType)
+				d[Id(receiverVarName)] = Id(receiverVarName)
+			}
+		}))
+		g.Id("server").Dot("RegisterName").Call(Lit(resourceName), Id(resourceInstance), Lit(""))
+
+		g.Id("server").Dot("Serve").Call(Lit("tcp"), Id("address"))
+
+		//RC end
+	})
 }
 
 func makeRPCRequestResponseTypes(info *PackageInfo, main *Group, f *File) {
@@ -137,4 +217,8 @@ func makeRPCReceiverMiddleware(recId string, scope *Group, constructor *parser.F
 		scope,
 		List(Id(recId), Err()).Op("=").Qual(info.Service.Name, constructor.Name).CallFunc(constructorCall),
 	)
+}
+
+func getRPCResourceName(info *PackageInfo) string {
+	return "Resource__" + info.Service.Alias
 }
