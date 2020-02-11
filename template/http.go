@@ -176,15 +176,16 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 
 				g.Id("server").Dot("POST").Call(
 					Lit(toSnakeCase(route)),
-					Id(handler).CallFunc(func(g *Group) {
-						if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
-							//Inject receiver to http handler.
-							g.Id(receiverVarName)
-						} else {
-							//Inject dependencies to http handler for non top level receiver.
-							g.Add(getConstructorDepsNames(constructorFunc, info))
-						}
-					}),
+					Id(handler).
+						CallFunc(func(g *Group) {
+							if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
+								//Inject receiver to http handler.
+								g.Id(receiverVarName)
+							} else {
+								//Inject dependencies to http handler for non top level receiver.
+								g.Add(getConstructorDepsNames(constructorFunc, info))
+							}
+						}),
 				)
 				return
 			}

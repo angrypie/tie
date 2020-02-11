@@ -90,11 +90,35 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 		resourceInstance := "Instance__" + resourceName
 
 		f.Type().Id(resourceName).StructFunc(func(g *Group) {
-
 			for receiverType := range receiversCreated {
 				receiverVarName := getReceiverVarName(receiverType)
 				g.Id(receiverVarName).Op("*").Qual(info.Service.Name, trimPrefix(receiverType))
 			}
+		})
+
+		//RC add rpc handlers for main resource object
+		forEachFunction(info, true, func(fn *parser.Function) {
+			handler, request, response := getMethodTypes(fn, "RPC")
+			constructorFunc := info.GetConstructor(fn.Receiver.Type)
+			receiverVarName := getReceiverVarName(fn.Receiver.Type)
+
+			f.Func().Params(Id("resource").Id(resourceName)).Id(handler).
+				Params(Id("ctx").Qual("context", "Context"), Id("request").Id(request), Id("response").Id(response)). //RC
+				Params(Err().Error()).Block(
+				Return(Id(handler).
+					CallFunc(func(g *Group) {
+						if constructorFunc == nil {
+							return
+						}
+						if hasTopLevelReceiver(constructorFunc, info) {
+							//Inject receiver to http handler.
+							g.Id("resource").Dot(receiverVarName)
+						} else {
+							//Inject dependencies to rpc handler for non top level receiver.
+							g.Add(getConstructorDepsNamesRPC(constructorFunc, info))
+						}
+					}).
+					Call(Id("ctx"), Id("request"), Id("response"))))
 		})
 
 		g.Id("server").Op(":=").Qual(rpcxServer, "NewServer").Call()
@@ -221,4 +245,10 @@ func makeRPCReceiverMiddleware(recId string, scope *Group, constructor *parser.F
 
 func getRPCResourceName(info *PackageInfo) string {
 	return "Resource__" + info.Service.Alias
+}
+
+func getConstructorDepsNamesRPC(fn *parser.Function, info *PackageInfo) (code Code) {
+	return getConstructorDeps(fn, info, func(field parser.Field, g *Group) {
+		g.Id("resource").Dot(getReceiverVarName(field.Type))
+	})
 }
