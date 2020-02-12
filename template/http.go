@@ -2,7 +2,6 @@ package template
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/angrypie/tie/parser"
@@ -11,17 +10,24 @@ import (
 
 const echoPath = "github.com/labstack/echo"
 
+func GetServerMain(info *PackageInfo) (string, error) {
+	f := NewFile("http")
+
+	f.Func().Id("Main").Params().BlockFunc(func(g *Group) {
+		makeGracefulShutdown(info, g, f)
+		makeInitService(info, g, f)
+
+		makeHTTPServer(info, g, f)
+	})
+
+	return fmt.Sprintf("%#v", f), nil
+}
+
 func makeHTTPServer(info *PackageInfo, main *Group, f *File) {
-	service := info.Service
-	if service.Type != "http" && service.Type != "httpOnly" {
-		return
-	}
 	makeStartHTTPServer(info, main, f)
 	makeHTTPRequestResponseTypes(info, main, f)
 	makeHTTPHandlers(info, main, f)
-
-	makeHelpers(info, main, f)
-
+	makeHelpersHTTP(f)
 }
 
 func makeHTTPHandlers(info *PackageInfo, main *Group, f *File) {
@@ -41,7 +47,7 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 		if len(arguments) != 0 {
 			g.Id("request").Op(":=").New(Id(request))
 			g.List(Id("_"), ListFunc(createArgsListFunc(fn.Arguments, "request", "string,"))).Op("=").
-				List(Lit(0), ListFunc(createArgsList(fn.Arguments, func(arg *Statement) *Statement {
+				List(Lit(0), ListFunc(createArgsList(fn.Arguments, func(arg *Statement, field parser.Field) *Statement {
 					return Id(firstNotEmptyStrHelper).Call(
 						Id("request").Dot(arg.GoString()),
 						Id("ctx").Dot("QueryParam").Call(Lit(strings.ToLower(arg.GoString()))),
@@ -63,14 +69,14 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 			if constructorFunc != nil && !hasTopLevelReceiver(constructorFunc, info) {
 				receiverType := fn.Receiver.Type
 				g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, trimPrefix(receiverType)).Block()
-				makeReceiverMiddleware(receiverVarName, g, constructorFunc, info)
+				makeReceiverMiddlewareHTTP(receiverVarName, g, constructorFunc, info)
 			}
 			injectOriginalMethodCall(g, fn, Id(receiverVarName).Dot(fn.Name))
 		} else {
 			injectOriginalMethodCall(g, fn, Qual(info.Service.Name, fn.Name))
 		}
 
-		ifErrorReturnBadRequestWithErr(
+		ifErrorReturnErrHTTP(
 			g,
 			Err().Op(":=").Id("response").Dot("Err"),
 		)
@@ -183,7 +189,9 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 								g.Id(receiverVarName)
 							} else {
 								//Inject dependencies to http handler for non top level receiver.
-								g.Add(getConstructorDepsNames(constructorFunc, info))
+								g.Add(getConstructorDeps(constructorFunc, info, func(field parser.Field, g *Group) {
+									g.Id(getReceiverVarName(field.Type))
+								}))
 							}
 						}),
 				)
@@ -216,222 +224,35 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 	})
 }
 
-func makeReceiverMiddleware(recId string, scope *Group, constructor *parser.Function, info *PackageInfo) {
+func makeReceiverMiddlewareHTTP(recId string, scope *Group, constructor *parser.Function, info *PackageInfo) {
 	if constructor == nil {
 		return
 	}
-	constructorCall := func(g *Group) {
-		for _, field := range constructor.Arguments {
-			name := field.Name
-			//TODO check getHeader and getEnv function signature
-			//Inject getHeader function that returns header of current request
-			if name == "getHeader" {
-				g.Id(getHeaderHelper).Call(Id("ctx"))
-				continue
-			}
-			//Inject getEnv function that provide access to environment variables
-			if name == "getEnv" {
-				g.Id(getEnvHelper)
-				continue
-			}
 
-			//TODO send nil for pointer or empty object otherwise
-			if !info.IsReceiverType(field.Type) {
-				//g.Id("request").Dot(field.Name)
-				g.ListFunc(createArgsListFunc([]parser.Field{field}, "request"))
-				continue
-			}
+	constructorCall := makeCallWithMiddleware(constructor, info, middlewaresMap{
+		"getEnv":    Id(getEnvHelper),
+		"getHeader": Id(getHeaderHelper).Call(Id("ctx")),
+	})
 
-			//Oterwise inject receiver dependencie
-			g.Id(getReceiverVarName(field.Type))
-		}
-	}
-
-	ifErrorReturnBadRequestWithErr(
+	ifErrorReturnErrHTTP(
 		scope,
 		List(Id(recId), Err()).Op("=").Qual(info.Service.Name, constructor.Name).CallFunc(constructorCall),
 	)
 }
 
-func makeReceiverInitialization(recId string, scope *Group, constructor *parser.Function, info *PackageInfo) {
-	if constructor == nil {
-		return
-	}
-	constructorCall := func(g *Group) {
-		for _, field := range constructor.Arguments {
-			name := field.Name
-			//TODO check getEnv function signature
-			//Inject getEnv function that provide access to environment variables
-			if name == "getEnv" {
-				g.Id(getEnvHelper)
-				continue
-			}
-
-			//TODO send nil for pointer or empty object otherwise
-			if !info.IsReceiverType(field.Type) {
-				g.Nil()
-				continue
-			}
-
-		}
-	}
-
-	scope.If(
-		List(Id(recId), Err()).Op("=").Qual(info.Service.Name, constructor.Name).CallFunc(constructorCall),
-		Err().Op("!=").Nil(),
-	).Block(
-		//TODO return appropriate error here
-		Panic(Err()),
+func ifErrorReturnErrHTTP(scope *Group, statement *Statement) {
+	ret := Id("ctx").Dot("JSON").Call(
+		Qual("net/http", "StatusBadRequest"),
+		Map(String()).String().Values(Dict{Lit("err"): Err().Dot("Error").Call()}),
 	)
-
-	for _, fn := range info.Functions {
-		if fn.Name == "Stop" && info.GetConstructor(fn.Receiver.Type) == constructor {
-			scope.Id("stoppableServices").Op("=").Append(Id("stoppableServices"), Id(recId))
-			return
-		}
-	}
-
+	addIfErrorGuard(scope, statement, ret)
 }
 
-func ifErrorReturnBadRequestWithErr(scope *Group, statement *Statement) {
-	scope.If(
-		statement,
-		Err().Op("!=").Nil(),
-	).Block(
-		Return(Id("ctx").Dot("JSON").Call(
-			Qual("net/http", "StatusBadRequest"),
-			Map(String()).String().Values(Dict{Lit("err"): Err().Dot("Error").Call()}),
-		)),
-	)
-}
-
-func injectOriginalMethodCall(g *Group, fn *parser.Function, method Code) {
-	g.ListFunc(createArgsListFunc(fn.Results, "response")).
-		Op("=").Add(method).Call(ListFunc(createArgsListFunc(fn.Arguments, "request")))
-}
-
-func createTypeFromArgs(name string, args []parser.Field, info *PackageInfo) Code {
-	return Type().Id(name).StructFunc(func(g *Group) {
-		for _, arg := range args {
-			name := arg.Name
-			if isArgNameAreDTO(name) {
-				name = ""
-			}
-			field := Id(strings.Title(name)).Op(arg.Prefix)
-			if arg.Package != "" {
-				field.Qual(info.Service.Name, arg.Type)
-			} else {
-				field.Id(arg.Type)
-			}
-			jsonTag := strings.ToLower(name)
-			if arg.Type == "error" {
-				jsonTag = "-"
-			}
-			field.Tag(map[string]string{"json": jsonTag})
-			g.Add(field)
-		}
-	})
-}
-
-func createReqRespTypes(postfix string, info *PackageInfo) Code {
-	code := Comment(fmt.Sprintf("Request/Response types (%s)", postfix)).Line()
-
-	forEachFunction(info, true, func(fn *parser.Function) {
-		arguments := createCombinedHandlerArgs(fn, info)
-
-		_, reqName, respName := getMethodTypes(fn, postfix)
-		code.Add(createTypeFromArgs(reqName, arguments, info))
-		code.Line()
-		code.Add(createTypeFromArgs(respName, fn.Results, info))
-		code.Line()
-	})
-	return code
-}
-
-func createArgsListFunc(args []parser.Field, params ...string) func(*Group) {
-	return createArgsList(args, func(arg *Statement) *Statement {
-		return arg
-	}, params...)
-}
-
-//createArgsList creates list from parser.Field array.
-//Transform function are used to modify each element list.
-//Optional param 1 is used to specify prefix for each element.
-//Optional param 2 is used to specify allowed argument types (format: type1,type2,).
-func createArgsList(
-	args []parser.Field,
-	transform func(*Statement) *Statement,
-	params ...string,
-) func(*Group) {
-	prefix, onlyTypes := "", ""
-	if len(params) > 0 {
-		prefix = params[0]
-	}
-	if len(params) > 1 {
-		onlyTypes = params[1]
-	}
-	return func(g *Group) {
-		for _, arg := range args {
-			//Skip iteration if arg has type that not in onlyTypes (if it is not empty).
-			if onlyTypes != "" && !strings.Contains(onlyTypes, arg.Type+",") {
-				continue
-			}
-			if isArgNameAreDTO(arg.Name) && prefix != "" {
-				g.Add(transform(Id(prefix).Dot(arg.Type)))
-				return
-			}
-			name := strings.Title(arg.Name)
-			if prefix != "" {
-				g.Add(transform(Id(prefix).Dot(name)))
-			} else {
-				g.Add(transform(Id(name)))
-			}
-		}
-	}
-}
-
-var matchFuncType = regexp.MustCompile("^func.*")
-
-func getConstructorDepsNames(fn *parser.Function, info *PackageInfo) (code Code) {
-	return getConstructorDeps(fn, info, func(field parser.Field, g *Group) {
-		g.Id(getReceiverVarName(field.Type))
-	})
-}
-
-func getConstructorDepsSignature(fn *parser.Function, info *PackageInfo) (code Code) {
-	return getConstructorDeps(fn, info, func(field parser.Field, g *Group) {
-		g.Id(getReceiverVarName(field.Type)).Op("*").Qual(info.Service.Name, trimPrefix(field.Type))
-	})
-}
-
-func getConstructorDeps(
-	fn *parser.Function,
-	info *PackageInfo,
-	createDep func(field parser.Field, g *Group),
-) (code Code) {
-	if fn == nil {
-		return
-	}
-
-	return ListFunc(func(g *Group) {
-		for _, field := range fn.Arguments {
-			t := field.Type
-			if matchFuncType.MatchString(t) || !info.IsReceiverType(t) {
-				continue
-			}
-			createDep(field, g)
-		}
-	})
-}
-
-const getEnvHelper = "getEnvHelper"
 const firstNotEmptyStrHelper = "firstNotEmptyStrHelper"
 const getHeaderHelper = "getHeaderHelper"
 
-func makeHelpers(info *PackageInfo, main *Group, f *File) {
-	f.Func().Id(getEnvHelper).Params(Id("envName").String()).String().Block(
-		Return(Qual("os", "Getenv").Call(Id("envName"))),
-	)
+func makeHelpersHTTP(f *File) {
+	addGetEnvHelper(f)
 
 	f.Func().Id(firstNotEmptyStrHelper).Params(Id("a"), Id("b").String()).String().Block(
 		If(Id("a").Op("!=").Lit("")).Block(Return(Id("a"))),
@@ -449,8 +270,4 @@ func makeHelpers(info *PackageInfo, main *Group, f *File) {
 			),
 		),
 	)
-}
-
-func trimPrefix(str string) string {
-	return strings.TrimPrefix(str, "*")
 }

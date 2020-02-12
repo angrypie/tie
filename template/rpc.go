@@ -15,23 +15,16 @@ func GetRpcServerMain(info *PackageInfo) (string, error) {
 		makeInitService(info, g, f)
 
 		makeRPCServer(info, g, f)
-		makeWaitGuard(g)
-		makeHelpers(info, g, f)
 	})
 
 	return fmt.Sprintf("%#v", f), nil
 }
 
 func makeRPCServer(info *PackageInfo, main *Group, f *File) {
-	service := info.Service
-	if service.Type == "httpOnly" {
-		return
-	}
-
 	makeStartRPCServer(info, main, f)
 	makeRPCRequestResponseTypes(info, main, f)
 	makeRPCHandlers(info, main, f)
-
+	makeHelpersRPC(f)
 }
 
 func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
@@ -115,7 +108,9 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 							g.Id("resource").Dot(receiverVarName)
 						} else {
 							//Inject dependencies to rpc handler for non top level receiver.
-							g.Add(getConstructorDepsNamesRPC(constructorFunc, info))
+							g.Add(getConstructorDeps(constructorFunc, info, func(field parser.Field, g *Group) {
+								g.Id("resource").Dot(getReceiverVarName(field.Type))
+							}))
 						}
 					}).
 					Call(Id("ctx"), Id("request"), Id("response"))))
@@ -162,7 +157,7 @@ func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 			if constructorFunc != nil && !hasTopLevelReceiver(constructorFunc, info) {
 				receiverType := fn.Receiver.Type
 				g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, trimPrefix(receiverType)).Block()
-				makeRPCReceiverMiddleware(receiverVarName, g, constructorFunc, info) //RC
+				makeReceiverMiddlewareRPC(receiverVarName, g, constructorFunc, info) //RC
 			}
 			injectOriginalMethodCall(g, fn, Id(receiverVarName).Dot(fn.Name))
 		} else {
@@ -197,40 +192,14 @@ func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 }
 
 func ifErrorReturnErrRPC(scope *Group, statement *Statement) {
-	scope.If(
-		statement,
-		Err().Op("!=").Nil(),
-	).Block(
-		Return(Err()),
-	)
+	addIfErrorGuard(scope, statement, Err())
 }
 
-func makeRPCReceiverMiddleware(recId string, scope *Group, constructor *parser.Function, info *PackageInfo) {
+func makeReceiverMiddlewareRPC(recId string, scope *Group, constructor *parser.Function, info *PackageInfo) {
 	if constructor == nil {
 		return
 	}
-	constructorCall := func(g *Group) {
-		for _, field := range constructor.Arguments {
-			name := field.Name
-			//TODO check and getEnv function signature
-			//Inject getEnv function that provide access to environment variables
-			//RC deleted getHeader
-			if name == "getEnv" {
-				g.Id(getEnvHelper)
-				continue
-			}
-
-			//TODO send nil for pointer or empty object otherwise
-			if !info.IsReceiverType(field.Type) {
-				//g.Id("request").Dot(field.Name)
-				g.ListFunc(createArgsListFunc([]parser.Field{field}, "request"))
-				continue
-			}
-
-			//Oterwise inject receiver dependencie
-			g.Id(getReceiverVarName(field.Type))
-		}
-	}
+	constructorCall := makeCallWithMiddleware(constructor, info, middlewaresMap{"getEnv": Id(getEnvHelper)})
 
 	ifErrorReturnErrRPC(
 		scope,
@@ -242,8 +211,6 @@ func getRPCResourceName(info *PackageInfo) string {
 	return "Resource__" + info.Service.Alias
 }
 
-func getConstructorDepsNamesRPC(fn *parser.Function, info *PackageInfo) (code Code) {
-	return getConstructorDeps(fn, info, func(field parser.Field, g *Group) {
-		g.Id("resource").Dot(getReceiverVarName(field.Type))
-	})
+func makeHelpersRPC(f *File) {
+	addGetEnvHelper(f)
 }

@@ -16,73 +16,10 @@ func GetMainPackage(packagePath string, modules []string) (data string, err erro
 			path := fmt.Sprintf("%s/%s", packagePath, module)
 			g.Qual(path, "Main").Call()
 		}
-	})
-
-	return fmt.Sprintf("%#v", f), nil
-}
-
-func GetServerMain(info *PackageInfo) (string, error) {
-	f := NewFile("http")
-
-	f.Func().Id("Main").Params().BlockFunc(func(g *Group) {
-		makeGracefulShutdown(info, g, f)
-		makeInitService(info, g, f)
-
-		makeHTTPServer(info, g, f)
-
 		makeWaitGuard(g)
 	})
 
 	return fmt.Sprintf("%#v", f), nil
-}
-
-func makeWaitGuard(main *Group) {
-	main.Op("<-").Make(Chan().Bool())
-}
-
-func makeInitService(info *PackageInfo, main *Group, f *File) {
-	if !info.IsInitService {
-		return
-	}
-	main.If(
-		Err().Op(":=").Qual(info.Service.Name, "InitService").Call(),
-		Err().Op("!=").Nil(),
-	).Block(
-		createErrLog("failed to init service"),
-		Return(),
-	)
-}
-
-func makeGracefulShutdown(info *PackageInfo, g *Group, f *File) {
-	functionName := "gracefulShutDown"
-	g.Id(functionName).Call()
-
-	f.Type().Id("stoppable").Interface(Id("Stop").Params().Error())
-
-	f.Var().Id("stoppableServices").Index().Id("stoppable")
-
-	f.Func().Id(functionName).Params().Block(
-		Id("sigChan").Op(":=").Make(Chan().Qual("os", "Signal")),
-		Qual("os/signal", "Notify").Call(Id("sigChan"), Qual("syscall", "SIGTERM")),
-		Qual("os/signal", "Notify").Call(Id("sigChan"), Qual("syscall", "SIGINT")),
-
-		Go().Func().Params().BlockFunc(func(g *Group) {
-			g.Op("<-").Id("sigChan")
-			if info.IsStopService {
-				//TODO add time limit for StopService execution
-				g.Id("err").Op(":=").Qual(info.Service.Name, "StopService").Call()
-				g.If(Err().Op("!=").Nil()).Block(
-					Qual("log", "Println").Call(List(Lit("ERR failed to stop service"), Err())),
-				)
-			}
-
-			g.For().List(Id("_"), Id("service")).Op(":=").Range().Id("stoppableServices").Block(
-				Id("service").Dot("Stop").Call(),
-			)
-
-			g.Qual("os", "Exit").Call(Lit(0))
-		}).Call(),
-	)
 }
 
 type PackageInfo struct {
