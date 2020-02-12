@@ -128,6 +128,10 @@ func trimPrefix(str string) string {
 
 var matchFuncType = regexp.MustCompile("^func.*")
 
+func isFuncType(t string) bool {
+	return matchFuncType.MatchString(t)
+}
+
 func getConstructorDepsSignature(fn *parser.Function, info *PackageInfo) (code Code) {
 	return getConstructorDeps(fn, info, func(field parser.Field, g *Group) {
 		g.Id(getReceiverVarName(field.Type)).Op("*").Qual(info.Service.Name, trimPrefix(field.Type))
@@ -146,7 +150,7 @@ func getConstructorDeps(
 	return ListFunc(func(g *Group) {
 		for _, field := range fn.Arguments {
 			t := field.Type
-			if matchFuncType.MatchString(t) || !info.IsReceiverType(t) {
+			if isFuncType(t) || !info.IsReceiverType(t) {
 				continue
 			}
 			createDep(field, g)
@@ -341,13 +345,17 @@ func makeCallWithMiddleware(fn *parser.Function, info *PackageInfo, middlewares 
 			}
 		}
 
+		//Inject receiver dependencie
 		if info.IsReceiverType(field.Type) {
 			return Id(getReceiverVarName(field.Type))
 		}
 
-		//Oterwise inject receiver dependencie
-		//TODO send nil for pointer or empty object otherwise
-		//TODO why listfunc instead of g.Id?
+		if isFuncType(field.Type) {
+			return Nil()
+		}
+
+		//TODO send nil for pointer or empty object
+		//Bind request argument
 		return ListFunc(createArgsListFunc([]parser.Field{field}, "request"))
 	})
 }
