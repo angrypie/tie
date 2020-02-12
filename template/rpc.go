@@ -178,7 +178,6 @@ func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 	}
 
 	//Create handler methods that use closure to inject receiver if it exist.
-	//if hasReceiver(fn) {
 	file.Func().Id(handler).ParamsFunc(func(g *Group) {
 		if !hasReceiver(fn) {
 			return
@@ -195,13 +194,6 @@ func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 		Params(Id("ctx").Qual("context", "Context"), Id("request").Id(request), Id("response").Id(response)). //RC
 		Params(Err().Error()).BlockFunc(handlerBody),
 	)).Line()
-	//} else {
-	//file.Func().Id(handler).
-	//Params(Id("ctx").Qual("context", "Context"), Id("request").Id(request), Id("response").Id(response)). //RC
-	//Params(Err().Error()).BlockFunc(handlerBody).
-	//Line()
-	//}
-
 }
 
 func ifErrorReturnErrRPC(scope *Group, statement *Statement) {

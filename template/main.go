@@ -1,130 +1,111 @@
 package template
 
 import (
-	"bytes"
-	"text/template"
+	"fmt"
 
 	"github.com/angrypie/tie/parser"
+	"github.com/angrypie/tie/types"
+	. "github.com/dave/jennifer/jen"
 )
 
-const ServerMain = `
-func main() {
-	var gracefulStop = make(chan os.Signal)
-	signal.Notify(gracefulStop, syscall.SIGTERM)
-	signal.Notify(gracefulStop, syscall.SIGINT)
-	go func() {
-		<-gracefulStop
-		{{if .IsStopService}}
-		err := {{.Alias}}.StopService()
-		if err != nil {
-			fmt.Println("ERR Cant gracefully stop service", err)
-		}
-		{{end}}
-		os.Exit(0)
-	}()
+func GetMainPackage(packagePath string, modules []string) (data string, err error) {
+	f := NewFile("main")
 
-	{{if .IsInitService}}
-	err := {{.Alias}}.InitService()
-	if err != nil {
-		fmt.Println("ERR Cant InitService", err)
+	f.Func().Id("main").Params().BlockFunc(func(g *Group) {
+		for _, module := range modules {
+			path := fmt.Sprintf("%s/%s", packagePath, module)
+			g.Qual(path, "Main").Call()
+		}
+	})
+
+	return fmt.Sprintf("%#v", f), nil
+}
+
+func GetServerMain(info *PackageInfo) (string, error) {
+	f := NewFile("http")
+
+	f.Func().Id("Main").Params().BlockFunc(func(g *Group) {
+		makeGracefulShutdown(info, g, f)
+		makeInitService(info, g, f)
+
+		makeHTTPServer(info, g, f)
+
+		makeWaitGuard(g)
+	})
+
+	return fmt.Sprintf("%#v", f), nil
+}
+
+func makeWaitGuard(main *Group) {
+	main.Op("<-").Make(Chan().Bool())
+}
+
+func makeInitService(info *PackageInfo, main *Group, f *File) {
+	if !info.IsInitService {
 		return
 	}
-	{{end}}
-
-	{{if ne .ServiceType "httpOnly"}}
-	//Use context to avoid errors when it's unsused
-	_ = context.TODO()
-	go startRPCServer()
-	{{end}}
-
-	{{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
-	go startHTTPServer()
-	{{end}}
-
-	//TODO graceful shutdown
-	<-make(chan bool)
+	main.If(
+		Err().Op(":=").Qual(info.Service.Name, "InitService").Call(),
+		Err().Op("!=").Nil(),
+	).Block(
+		createErrLog("failed to init service"),
+		Return(),
+	)
 }
 
-{{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
-func startHTTPServer() {
-	{{if eq .Port ""}}
-		port, err := getPort()
-		if err != nil {
-			panic(err)
-		}
-	{{else}}
-		port := {{.Port}}
-	{{end}}
+func makeGracefulShutdown(info *PackageInfo, g *Group, f *File) {
+	functionName := "gracefulShutDown"
+	g.Id(functionName).Call()
 
-	addr := fmt.Sprintf(":%d", port)
-	e := echo.New()
-	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowMethods:     []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
-		AllowOrigins:     []string{"*"},
-	}))
-	{{ generateEchoAuth }}
-	{{range $k,$v := .Functions}}e.POST(strings.ToLower("{{$v.Name}}"), {{$v.Name}}HTTPHandler)
-	{{end}}
-	e.Start(addr)
+	f.Type().Id("stoppable").Interface(Id("Stop").Params().Error())
+
+	f.Var().Id("stoppableServices").Index().Id("stoppable")
+
+	f.Func().Id(functionName).Params().Block(
+		Id("sigChan").Op(":=").Make(Chan().Qual("os", "Signal")),
+		Qual("os/signal", "Notify").Call(Id("sigChan"), Qual("syscall", "SIGTERM")),
+		Qual("os/signal", "Notify").Call(Id("sigChan"), Qual("syscall", "SIGINT")),
+
+		Go().Func().Params().BlockFunc(func(g *Group) {
+			g.Op("<-").Id("sigChan")
+			if info.IsStopService {
+				//TODO add time limit for StopService execution
+				g.Id("err").Op(":=").Qual(info.Service.Name, "StopService").Call()
+				g.If(Err().Op("!=").Nil()).Block(
+					Qual("log", "Println").Call(List(Lit("ERR failed to stop service"), Err())),
+				)
+			}
+
+			g.For().List(Id("_"), Id("service")).Op(":=").Range().Id("stoppableServices").Block(
+				Id("service").Dot("Stop").Call(),
+			)
+
+			g.Qual("os", "Exit").Call(Lit(0))
+		}).Call(),
+	)
 }
-{{end}}
 
-{{if or (eq .ServiceType "http") (eq .ServiceType "httpOnly")}}
-func errToString(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
+type PackageInfo struct {
+	Functions     []*parser.Function
+	Constructors  map[string]*parser.Function
+	IsInitService bool
+	IsStopService bool
+	Service       *types.Service
 }
-{{end}}
 
-{{if ne .ServiceType "httpOnly"}}
-func startRPCServer() {
-	port, err := getPort()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Resource_{{.Alias}}")
-	zconfServer, err := zeroconf.Register("GoZeroconf", "Resource_{{.Alias}}", "local.", port, []string{"txtv=0", "lo=1", "la=2"}, nil)
-	if err != nil {
-		panic(err)
-	}
-	defer zconfServer.Shutdown()
-
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	server := rpcx.NewServer()
-	server.RegisterName("Resource_{{.Alias}}", new(Resource_{{.Alias}}), "")
-	fmt.Println("Start on port:", port)
-	err = server.Serve("tcp", addr)
-	if err != nil {
-		panic(err)
-	}
+func (info *PackageInfo) IsReceiverType(t string) bool {
+	_, ok := info.Constructors[t]
+	return ok
 }
-{{end}}
 
-func getPort() (port int, err error) {
-	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	if err != nil {
-		return port, err
-	}
-
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return port, err
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
+func (info *PackageInfo) GetConstructor(t string) *parser.Function {
+	return info.Constructors[t]
 }
-`
 
-func MakeServerMain(p *parser.Parser, functions []*parser.Function) ([]byte, error) {
-	type helper struct {
-		Alias         string
-		ServiceType   string
-		Functions     []*parser.Function
-		IsInitService bool
-		IsStopService bool
-		Port          string
+func NewPackageInfoFromParser(p *parser.Parser) (*PackageInfo, error) {
+	functions, err := p.GetFunctions()
+	if err != nil {
+		return nil, err
 	}
 	var fns []*parser.Function
 	for _, fn := range functions {
@@ -133,53 +114,34 @@ func MakeServerMain(p *parser.Parser, functions []*parser.Function) ([]byte, err
 		}
 		fns = append(fns, fn)
 	}
-	//Set helper fields
-	h := helper{Alias: p.Service.Alias, ServiceType: p.Service.Type, Functions: fns, Port: p.Service.Port}
 
-	funcMap := template.FuncMap{
-		"generateEchoAuth": func() string {
-			return makeEchoAuth(p.Service.Auth)
-		},
+	info := PackageInfo{
+		Functions:    fns,
+		Service:      p.Service,
+		Constructors: make(map[string]*parser.Function),
 	}
 
-	//Set InitService and StopService flags
 	for _, fn := range functions {
 		if fn.Name == "InitService" {
-			h.IsInitService = true
+			info.IsInitService = true
 		}
 		if fn.Name == "StopService" {
-			h.IsStopService = true
+			info.IsStopService = true
+		}
+
+		if _, ok := info.Constructors[fn.Receiver.Type]; ok {
+			continue
+		}
+
+		ok, receiverType := isConventionalConstructor(fn)
+		if ok {
+			info.Constructors[receiverType] = fn
 		}
 	}
 
-	var buff bytes.Buffer
-	t := template.Must(
-		template.New("server_main").Funcs(funcMap).Parse(ServerMain),
-	)
-	err := t.Execute(&buff, h)
-	if err != nil {
-		return nil, err
-	}
-
-	return buff.Bytes(), nil
+	return &info, nil
 }
 
-func makeEchoAuth(key string) string {
-	if key == "" {
-		return ""
-	}
-	const templ = `
-e.Use(middleware.KeyAuth(func(key string, c echo.Context) (bool, error) {
-	if envKey := os.Getenv("TIE_API_KEY"); envKey != "" {
-		return key == envKey, nil
-	}
-  return key == "{{.}}", nil
-}))
-`
-	var buff bytes.Buffer
-	template.Must(
-		template.New("templateEchoAuth").Parse(templ),
-	).Execute(&buff, key)
-	return buff.String()
-
+func createErrLog(msg string) *Statement {
+	return Qual("log", "Printf").Call(List(Lit("ERR %s: %s"), Lit(msg), Err()))
 }
