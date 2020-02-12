@@ -3,6 +3,7 @@ package upgrade
 import (
 	"bytes"
 	"errors"
+	"strings"
 
 	"github.com/angrypie/tie/parser"
 	"github.com/angrypie/tie/template"
@@ -75,36 +76,38 @@ func (upgrader *Upgrader) Make() (err error) {
 	p := upgrader.Parser
 	//TODO create subpackage for each upgrader
 
-	if upgrader.Parser.Service.Type == "httpOnly" {
-		info, err := template.NewPackageInfoFromParser(p)
-		if err != nil {
-			return err
-		}
-		serverStr, err := template.GetServerMain(info)
-		if err != nil {
-			return err
-		}
-
-		upgrader.Server["http"] = bytes.NewBufferString(serverStr)
-	} else {
-		info, err := template.NewPackageInfoFromParser(p)
-		if err != nil {
-			return err
-		}
-		serverStr, err := template.GetRpcServerMain(info)
-		if err != nil {
-			return err
-		}
-		upgrader.Server["rpc"] = bytes.NewBufferString(serverStr)
-	}
-
-	main, err := template.GetMainPackage(upgrader.Parser.Service.Name, upgrader.serverModulesDirs())
+	info, err := template.NewPackageInfoFromParser(p)
 	if err != nil {
 		return err
 	}
 
-	upgrader.Server["main"] = bytes.NewBufferString(main)
+	types := strings.Split(upgrader.Parser.Service.Type, " ")
 
+	rpc := func() error {
+		serverStr, err := template.GetRpcServerMain(info)
+		upgrader.Server["rpc"] = bytes.NewBufferString(serverStr)
+		return err
+	}
+
+	modules := map[string]func() error{
+		"http": func() error {
+			serverStr, err := template.GetServerMain(info)
+			upgrader.Server["http"] = bytes.NewBufferString(serverStr)
+			return err
+		},
+		"rpc": rpc,
+		"":    rpc,
+	}
+
+	for _, serviceType := range types {
+		err := modules[serviceType]()
+		if err != nil {
+			return err
+		}
+	}
+
+	main, err := template.GetMainPackage(upgrader.Parser.Service.Name, upgrader.serverModulesDirs())
+	upgrader.Server["main"] = bytes.NewBufferString(main)
 	return err
 }
 

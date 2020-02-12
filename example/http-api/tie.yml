@@ -1,5 +1,5 @@
 services:
   - name: 'github.com/angrypie/tie/example/http-api'
     alias: 'api'
-    type: 'httpOnly'
+    type: 'http'
     port: '8222'
