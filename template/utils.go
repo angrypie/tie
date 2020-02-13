@@ -359,3 +359,67 @@ func makeCallWithMiddleware(fn *parser.Function, info *PackageInfo, middlewares 
 		return ListFunc(createArgsListFunc([]parser.Field{field}, "request"))
 	})
 }
+
+func makeStartServerInit(info *PackageInfo, g *Group) {
+	//Declare err and get rid of ''unused' error.
+	g.Var().Err().Error()
+	g.Id("_").Op("=").Err()
+
+	port := info.Service.Port
+	if port == "" {
+		g.List(Id("address"), Err()).Op(":=").
+			Qual(rndport, "GetAddress").Call(Lit(":%d"))
+		g.If(Err().Op("!=").Nil()).Block(Panic(Err()))
+	} else {
+		g.Id("address").Op(":=").Lit(fmt.Sprintf(":%s", port))
+	}
+}
+
+func makeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map[string]bool) {
+	receiversCreated = make(map[string]bool) //RC
+	receiversProcessed := make(map[string]bool)
+	createReceivers := func(receiverType string, constructorFunc *parser.Function) {
+		receiversProcessed[receiverType] = true
+		//Skip not top level receivers.
+		if constructorFunc != nil && !hasTopLevelReceiver(constructorFunc, info) {
+			return
+		}
+		receiversCreated[receiverType] = true
+		receiverVarName := getReceiverVarName(receiverType)
+		g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, trimPrefix(receiverType)).Block()
+		makeReceiverInitialization(receiverVarName, g, constructorFunc, info)
+	}
+	//Create receivers for each constructor
+	for t, c := range info.Constructors {
+		createReceivers(t, c)
+	}
+
+	//Create receivers that does not have constructor
+	forEachFunction(info, false, func(fn *parser.Function) {
+		receiverType := fn.Receiver.Type
+		//Skip function if it does not have receiver or receiver already created.
+		if !hasReceiver(fn) || receiversProcessed[receiverType] {
+			return
+		}
+		//It will not create constructor call due constructor func is nil
+		createReceivers(receiverType, nil)
+	})
+
+	return receiversCreated
+}
+
+func makeHandlerWrapperCall(fn *parser.Function, info *PackageInfo) func(*Group) {
+	constructorFunc := info.GetConstructor(fn.Receiver.Type)
+	receiverVarName := getReceiverVarName(fn.Receiver.Type)
+	return func(g *Group) {
+		if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
+			//Inject receiver to http handler.
+			g.Id(receiverVarName)
+		} else {
+			//Inject dependencies to http handler for non top level receiver.
+			g.Add(getConstructorDeps(constructorFunc, info, func(field parser.Field, g *Group) {
+				g.Id(getReceiverVarName(field.Type))
+			}))
+		}
+	}
+}

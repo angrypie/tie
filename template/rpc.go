@@ -7,6 +7,9 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
+const rpcxServer = "github.com/smallnest/rpcx/server"
+const rndport = "github.com/angrypie/rndport"
+
 func GetServerMainRPC(info *PackageInfo) (string, error) {
 	f := NewFile("rpc")
 
@@ -28,54 +31,11 @@ func makeRPCServer(info *PackageInfo, main *Group, f *File) {
 }
 
 func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
-	rpcxServer := "github.com/smallnest/rpcx/server"
-	rndport := "github.com/angrypie/rndport"
+	main.Go().Id("startServer").Call()
 
-	main.Go().Id("startRPCServer").Call()
-
-	f.Func().Id("startRPCServer").Params().BlockFunc(func(g *Group) {
-		//Declare err and get rid of ''unused' error.
-		g.Var().Err().Error()
-		g.Id("_").Op("=").Err()
-
-		port := info.Service.Port
-		if port == "" {
-			g.List(Id("address"), Err()).Op(":=").
-				Qual(rndport, "GetAddress").Call(Lit(":%d"))
-			g.If(Err().Op("!=").Nil()).Block(Panic(Err()))
-		} else {
-			g.Id("address").Op(":=").Lit(fmt.Sprintf(":%s", port))
-		}
-
-		//.1 Create receivers for handlers
-		receiversProcessed := make(map[string]bool)
-		receiversCreated := make(map[string]bool) //RC
-		createReceivers := func(receiverType string, constructorFunc *parser.Function) {
-			receiversProcessed[receiverType] = true
-			//Skip not top level receivers.
-			if constructorFunc != nil && !hasTopLevelReceiver(constructorFunc, info) {
-				return
-			}
-			receiversCreated[receiverType] = true
-			receiverVarName := getReceiverVarName(receiverType)
-			g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, trimPrefix(receiverType)).Block()
-			makeReceiverInitialization(receiverVarName, g, constructorFunc, info)
-		}
-		//Create receivers for each constructor
-		for t, c := range info.Constructors {
-			createReceivers(t, c)
-		}
-
-		//Create receivers that does not have constructor
-		forEachFunction(info, false, func(fn *parser.Function) {
-			receiverType := fn.Receiver.Type
-			//Skip function if it does not have receiver or receiver already created.
-			if !hasReceiver(fn) || receiversProcessed[receiverType] {
-				return
-			}
-			//It will not create constructor call due constructor func is nil
-			createReceivers(receiverType, nil)
-		})
+	f.Func().Id("startServer").Params().BlockFunc(func(g *Group) {
+		makeStartServerInit(info, g) //SIM
+		receiversCreated := makeReceiversForHandlers(info, g)
 
 		//RC replace http server init
 		resourceName := getRPCResourceName(info)
@@ -91,27 +51,14 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 		//.2 Add handler for each function.
 		forEachFunction(info, true, func(fn *parser.Function) {
 			handler, request, response := getMethodTypes(fn, "RPC")
-			constructorFunc := info.GetConstructor(fn.Receiver.Type)
-			receiverVarName := getReceiverVarName(fn.Receiver.Type)
 
 			f.Func().Params(Id("resource").Id(resourceName)).Id(handler).
-				Params(Id("ctx").Qual("context", "Context"), Id("request").Id(request), Id("response").Id(response)). //RC
+				Params(Id("ctx").Qual("context", "Context"), Id("request").Id(request), Id("response").Id(response)).
 				Params(Err().Error()).Block(
-				Return(Id(handler).
-					CallFunc(func(g *Group) {
-						if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
-							//Inject receiver to http handler.
-							if hasReceiver(fn) {
-								g.Id("resource").Dot(receiverVarName)
-							}
-						} else {
-							//Inject dependencies to rpc handler for non top level receiver.
-							g.Add(getConstructorDeps(constructorFunc, info, func(field parser.Field, g *Group) {
-								g.Id("resource").Dot(getReceiverVarName(field.Type))
-							}))
-						}
-					}).
-					Call(Id("ctx"), Id("request"), Id("response"))))
+				Return(
+					Id(handler).
+						CallFunc(makeHandlerWrapperCall(fn, info)).
+						Call(Id("ctx"), Id("request"), Id("response"))))
 		})
 
 		g.Id("server").Op(":=").Qual(rpcxServer, "NewServer").Call()

@@ -9,6 +9,7 @@ import (
 )
 
 const echoPath = "github.com/labstack/echo"
+const echoMiddleware = "github.com/labstack/echo/middleware"
 
 func GetServerMainHTTP(info *PackageInfo) (string, error) {
 	f := NewFile("http")
@@ -53,10 +54,7 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 						Id("ctx").Dot("QueryParam").Call(Lit(strings.ToLower(arg.GoString()))),
 					)
 				}, "", "string,")))
-			g.If(
-				Err().Op(":=").Id("ctx").Dot("Bind").Call(Id("request")),
-				Err().Op("!=").Nil(),
-			).Block(Return(Err()))
+			addIfErrorGuard(g, Err().Op(":=").Id("ctx").Dot("Bind").Call(Id("request")), Err())
 		}
 
 		//Create response object
@@ -109,100 +107,34 @@ func makeHTTPRequestResponseTypes(info *PackageInfo, main *Group, f *File) {
 }
 
 func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
-	echoMiddleware := "github.com/labstack/echo/middleware"
-	rndport := "github.com/angrypie/rndport"
+	main.Go().Id("startServer").Call()
 
-	main.Go().Id("startHTTPServer").Call()
-
-	f.Func().Id("startHTTPServer").Params().BlockFunc(func(g *Group) {
-		//Declare err and get rid of ''unused' error.
-		g.Var().Err().Error()
-		g.Id("_").Op("=").Err()
-
-		port := info.Service.Port
-		if port == "" {
-			g.List(Id("address"), Err()).Op(":=").
-				Qual(rndport, "GetAddress").Call(Lit(":%d"))
-			g.If(Err().Op("!=").Nil()).Block(Panic(Err()))
-		} else {
-			g.Id("address").Op(":=").Lit(fmt.Sprintf(":%s", port))
-		}
+	f.Func().Id("startServer").Params().BlockFunc(func(g *Group) {
+		makeStartServerInit(info, g)      //SIM
+		makeReceiversForHandlers(info, g) //SIM
 
 		g.Id("server").Op(":=").Qual(echoPath, "New").Call()
-		g.Id("server").Dot("Use").Call(Qual(echoMiddleware, "CORSWithConfig").Call(
-			Qual(echoMiddleware, "CORSConfig").Values(Dict{
-				Id("AllowOrigins"): Index().String().Values(Lit("*")),
-			}),
-		))
-
-		//.1 Create receivers for handlers
-		receiversProcessed := make(map[string]bool)
-		createReceivers := func(receiverType string, constructorFunc *parser.Function) {
-			receiversProcessed[receiverType] = true
-			//Skip not top level receivers.
-			if constructorFunc != nil && !hasTopLevelReceiver(constructorFunc, info) {
-				return
-			}
-			receiverVarName := getReceiverVarName(receiverType)
-			g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, trimPrefix(receiverType)).Block()
-			makeReceiverInitialization(receiverVarName, g, constructorFunc, info)
-		}
-		//Create receivers for each constructor
-		for t, c := range info.Constructors {
-			createReceivers(t, c)
-		}
-
-		//Create receivers that does not have constructor
-		forEachFunction(info, false, func(fn *parser.Function) {
-			receiverType := fn.Receiver.Type
-			//Skip function if it does not have receiver or receiver already created.
-			if !hasReceiver(fn) || receiversProcessed[receiverType] {
-				return
-			}
-			//It will not create constructor call due constructor func is nil
-			createReceivers(receiverType, nil)
-		})
 
 		//.2 Add handler for each function.
 		forEachFunction(info, true, func(fn *parser.Function) {
 			handler, _, _ := getMethodTypes(fn, "HTTP")
 
-			constructorFunc := info.GetConstructor(fn.Receiver.Type)
-			receiverType := fn.Receiver.Type
-			receiverVarName := getReceiverVarName(receiverType)
-			route := fmt.Sprintf("%s/%s", receiverType, fn.Name)
+			route := fmt.Sprintf("%s/%s", fn.Receiver.Type, fn.Name)
 
 			g.Id("server").Dot("POST").Call(
 				Lit(toSnakeCase(route)),
-				Id(handler).
-					CallFunc(func(g *Group) {
-						if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
-							//Inject receiver to http handler.
-							g.Id(receiverVarName)
-						} else {
-							//Inject dependencies to http handler for non top level receiver.
-							g.Add(getConstructorDeps(constructorFunc, info, func(field parser.Field, g *Group) {
-								g.Id(getReceiverVarName(field.Type))
-							}))
-						}
-					}),
+				Id(handler).CallFunc(makeHandlerWrapperCall(fn, info)),
 			)
 		})
 
-		if key := info.Service.Auth; key != "" {
-			g.Id("server").Dot("Use").Call(Qual(echoMiddleware, "KeyAuth").Call(
-				Func().Params(Id("key").String(), Id("ctx").Qual(echoPath, "Context")).Params(Bool(), Error()).Block(
-					Id("auth").Op(":=").Lit(key),
-					If(
-						Id("envKey").Op(":=").Id(getEnvHelper).Call(Lit("TIE_API_KEY")),
-						Id("envKey").Op("!=").Lit(""),
-					).Block(
-						Id("auth").Op("=").Id("envKey"),
-					),
-					Return().List(Id("key").Op("==").Id("auth"), Nil()),
-				)),
-			)
-		}
+		//Configuration before start
+		g.Id("server").Dot("Use").Call(Qual(echoMiddleware, "CORSWithConfig").Call(
+			Qual(echoMiddleware, "CORSConfig").Values(Dict{
+				Id("AllowOrigins"): Index().String().Values(Lit("*")),
+			}),
+		))
+		//Enable authentication if auth field is specified in config
+		addAuthenticationHTTP(info, g)
 		g.Id("server").Dot("Start").Call(Id("address"))
 
 	})
@@ -253,5 +185,22 @@ func makeHelpersHTTP(f *File) {
 				),
 			),
 		),
+	)
+}
+
+func addAuthenticationHTTP(info *PackageInfo, g *Group) {
+	key := info.Service.Auth
+	if key == "" {
+		return
+	}
+	g.Id("server").Dot("Use").Call(Qual(echoMiddleware, "KeyAuth").Call(
+		Func().Params(Id("key").String(), Id("ctx").Qual(echoPath, "Context")).Params(Bool(), Error()).
+			BlockFunc(func(g *Group) {
+				g.Id("auth").Op(":=").Id(firstNotEmptyStrHelper).Call(
+					Id(getEnvHelper).Call(Lit("TIE_API_KEY")),
+					Lit(key),
+				)
+				g.Return().List(Id("key").Op("==").Id("auth"), Nil())
+			})),
 	)
 }

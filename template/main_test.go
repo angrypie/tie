@@ -41,6 +41,6 @@ func TestMain(t *testing.T) {
 			},
 		},
 	}
-	serverMain, _ := GetServerMain(&info)
+	serverMain, _ := GetServerMainHTTP(&info)
 	fmt.Println(serverMain)
 }
