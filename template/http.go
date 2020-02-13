@@ -10,7 +10,7 @@ import (
 
 const echoPath = "github.com/labstack/echo"
 
-func GetServerMain(info *PackageInfo) (string, error) {
+func GetServerMainHTTP(info *PackageInfo) (string, error) {
 	f := NewFile("http")
 
 	f.Func().Id("Main").Params().BlockFunc(func(g *Group) {
@@ -85,26 +85,22 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 	}
 
 	//Create handler methods that use closure to inject receiver if it exist.
-	if hasReceiver(fn) {
-		file.Func().Id(handler).ParamsFunc(func(g *Group) {
-			constructorFunc := info.GetConstructor(fn.Receiver.Type)
-			if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
-				g.Id(receiverVarName).Op("*").Qual(info.Service.Name, trimPrefix(fn.Receiver.Type))
-			} else {
-				g.Add(getConstructorDepsSignature(constructorFunc, info))
-			}
-		}).Params(
-			Func().Params(Qual(echoPath, "Context")).Params(Error()),
-		).Block(Return(Func().
-			Params(Id("ctx").Qual(echoPath, "Context")).
-			Params(Err().Error()).BlockFunc(handlerBody),
-		)).Line()
-	} else {
-		file.Func().Id(handler).
-			Params(Id("ctx").Qual(echoPath, "Context")).
-			Params(Err().Error()).BlockFunc(handlerBody).
-			Line()
-	}
+	file.Func().Id(handler).ParamsFunc(func(g *Group) {
+		if !hasReceiver(fn) {
+			return
+		}
+		constructorFunc := info.GetConstructor(fn.Receiver.Type)
+		if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
+			g.Id(receiverVarName).Op("*").Qual(info.Service.Name, trimPrefix(fn.Receiver.Type))
+		} else {
+			g.Add(getConstructorDepsSignature(constructorFunc, info))
+		}
+	}).Params(
+		Func().Params(Qual(echoPath, "Context")).Params(Error()),
+	).Block(Return(Func().
+		Params(Id("ctx").Qual(echoPath, "Context")).
+		Params(Err().Error()).BlockFunc(handlerBody),
+	)).Line()
 
 }
 
@@ -139,7 +135,6 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 			}),
 		))
 
-		//. Set HTTP handlers and init receivers.
 		//.1 Create receivers for handlers
 		receiversProcessed := make(map[string]bool)
 		createReceivers := func(receiverType string, constructorFunc *parser.Function) {
@@ -156,7 +151,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 		for t, c := range info.Constructors {
 			createReceivers(t, c)
 		}
-		//TODO
+
 		//Create receivers that does not have constructor
 		forEachFunction(info, false, func(fn *parser.Function) {
 			receiverType := fn.Receiver.Type
@@ -168,40 +163,29 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 			createReceivers(receiverType, nil)
 		})
 
-		//.2 Add http handler for each function.
-		//Route format is /receiver_name/method_name
+		//.2 Add handler for each function.
 		forEachFunction(info, true, func(fn *parser.Function) {
 			handler, _, _ := getMethodTypes(fn, "HTTP")
 
-			//If handler has receiver
-			if hasReceiver(fn) {
-				constructorFunc := info.GetConstructor(fn.Receiver.Type)
-				receiverType := fn.Receiver.Type
-				receiverVarName := getReceiverVarName(receiverType)
-				route := fmt.Sprintf("%s/%s", receiverType, fn.Name)
+			constructorFunc := info.GetConstructor(fn.Receiver.Type)
+			receiverType := fn.Receiver.Type
+			receiverVarName := getReceiverVarName(receiverType)
+			route := fmt.Sprintf("%s/%s", receiverType, fn.Name)
 
-				g.Id("server").Dot("POST").Call(
-					Lit(toSnakeCase(route)),
-					Id(handler).
-						CallFunc(func(g *Group) {
-							if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
-								//Inject receiver to http handler.
-								g.Id(receiverVarName)
-							} else {
-								//Inject dependencies to http handler for non top level receiver.
-								g.Add(getConstructorDeps(constructorFunc, info, func(field parser.Field, g *Group) {
-									g.Id(getReceiverVarName(field.Type))
-								}))
-							}
-						}),
-				)
-				return
-			}
-
-			route := fn.Name
 			g.Id("server").Dot("POST").Call(
 				Lit(toSnakeCase(route)),
-				Id(handler),
+				Id(handler).
+					CallFunc(func(g *Group) {
+						if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
+							//Inject receiver to http handler.
+							g.Id(receiverVarName)
+						} else {
+							//Inject dependencies to http handler for non top level receiver.
+							g.Add(getConstructorDeps(constructorFunc, info, func(field parser.Field, g *Group) {
+								g.Id(getReceiverVarName(field.Type))
+							}))
+						}
+					}),
 			)
 		})
 

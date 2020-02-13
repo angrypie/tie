@@ -44,6 +44,12 @@ func (user *User) Hello() (greeting string, err error) {
 	return user.greeter.greet(user.Name), nil
 }
 
+type Guest struct{}
+
+func (guest *Guest) Hello() (greeting string, err error) {
+	return "Hello guest", nil
+}
+
 func Hello(name string) (str string, err error) {
 	g := greeter{}
 	return g.greet(name), nil

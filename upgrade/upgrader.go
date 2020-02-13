@@ -84,14 +84,14 @@ func (upgrader *Upgrader) Make() (err error) {
 	types := strings.Split(upgrader.Parser.Service.Type, " ")
 
 	rpc := func() error {
-		serverStr, err := template.GetRpcServerMain(info)
+		serverStr, err := template.GetServerMainRPC(info)
 		upgrader.Server["rpc"] = bytes.NewBufferString(serverStr)
 		return err
 	}
 
 	modules := map[string]func() error{
 		"http": func() error {
-			serverStr, err := template.GetServerMain(info)
+			serverStr, err := template.GetServerMainHTTP(info)
 			upgrader.Server["http"] = bytes.NewBufferString(serverStr)
 			return err
 		},

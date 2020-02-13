@@ -7,7 +7,7 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
-func GetRpcServerMain(info *PackageInfo) (string, error) {
+func GetServerMainRPC(info *PackageInfo) (string, error) {
 	f := NewFile("rpc")
 
 	f.Func().Id("Main").Params().BlockFunc(func(g *Group) {
@@ -47,7 +47,6 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 			g.Id("address").Op(":=").Lit(fmt.Sprintf(":%s", port))
 		}
 
-		//. Set HTTP handlers and init receivers.
 		//.1 Create receivers for handlers
 		receiversProcessed := make(map[string]bool)
 		receiversCreated := make(map[string]bool) //RC
@@ -89,7 +88,7 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 			}
 		})
 
-		//RC add rpc handlers for main resource object
+		//.2 Add handler for each function.
 		forEachFunction(info, true, func(fn *parser.Function) {
 			handler, request, response := getMethodTypes(fn, "RPC")
 			constructorFunc := info.GetConstructor(fn.Receiver.Type)
@@ -100,12 +99,11 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 				Params(Err().Error()).Block(
 				Return(Id(handler).
 					CallFunc(func(g *Group) {
-						if constructorFunc == nil {
-							return
-						}
-						if hasTopLevelReceiver(constructorFunc, info) {
+						if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
 							//Inject receiver to http handler.
-							g.Id("resource").Dot(receiverVarName)
+							if hasReceiver(fn) {
+								g.Id("resource").Dot(receiverVarName)
+							}
 						} else {
 							//Inject dependencies to rpc handler for non top level receiver.
 							g.Add(getConstructorDeps(constructorFunc, info, func(field parser.Field, g *Group) {

@@ -144,7 +144,7 @@ func getConstructorDeps(
 	createDep func(field parser.Field, g *Group),
 ) (code Code) {
 	if fn == nil {
-		return
+		return List()
 	}
 
 	return ListFunc(func(g *Group) {
