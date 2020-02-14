@@ -118,12 +118,13 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 		//.2 Add handler for each function.
 		forEachFunction(info, true, func(fn *parser.Function) {
 			handler, _, _ := getMethodTypes(fn, "HTTP")
-
 			route := fmt.Sprintf("%s/%s", fn.Receiver.Type, fn.Name)
 
 			g.Id("server").Dot("POST").Call(
 				Lit(toSnakeCase(route)),
-				Id(handler).CallFunc(makeHandlerWrapperCall(fn, info)),
+				Id(handler).CallFunc(makeHandlerWrapperCall(fn, info, func(depName string) Code {
+					return Id(depName)
+				})),
 			)
 		})
 

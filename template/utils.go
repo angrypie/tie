@@ -408,17 +408,20 @@ func makeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map
 	return receiversCreated
 }
 
-func makeHandlerWrapperCall(fn *parser.Function, info *PackageInfo) func(*Group) {
+func makeHandlerWrapperCall(fn *parser.Function, info *PackageInfo, createDep func(string) Code) func(*Group) {
 	constructorFunc := info.GetConstructor(fn.Receiver.Type)
 	receiverVarName := getReceiverVarName(fn.Receiver.Type)
 	return func(g *Group) {
+		if !hasReceiver(fn) {
+			return
+		}
 		if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
 			//Inject receiver to http handler.
-			g.Id(receiverVarName)
+			g.Add(createDep(receiverVarName))
 		} else {
 			//Inject dependencies to http handler for non top level receiver.
 			g.Add(getConstructorDeps(constructorFunc, info, func(field parser.Field, g *Group) {
-				g.Id(getReceiverVarName(field.Type))
+				g.Add(createDep(getReceiverVarName(field.Type)))
 			}))
 		}
 	}

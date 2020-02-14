@@ -57,8 +57,9 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 				Params(Err().Error()).Block(
 				Return(
 					Id(handler).
-						CallFunc(makeHandlerWrapperCall(fn, info)).
-						Call(Id("ctx"), Id("request"), Id("response"))))
+						CallFunc(makeHandlerWrapperCall(fn, info, func(depName string) Code {
+							return Id("resource").Dot(depName)
+						})).Call(Id("ctx"), Id("request"), Id("response"))))
 		})
 
 		g.Id("server").Op(":=").Qual(rpcxServer, "NewServer").Call()
