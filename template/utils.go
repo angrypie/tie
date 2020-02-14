@@ -442,18 +442,21 @@ func makeHandlers(
 //makeOriginalCall creates dependencies and make original method call
 func makeOriginalCall(
 	info *PackageInfo, fn *parser.Function, g *Group,
-	m middlewaresMap, errGuard ifErrorGuard,
+	middlewares middlewaresMap, errGuard ifErrorGuard,
 ) {
-	receiverVarName := getReceiverVarName(fn.Receiver.Type)
-
 	//If method has receiver generate receiver middleware code
 	//else just call public package method
 	if hasReceiver(fn) {
-		constructorFunc := info.GetConstructor(fn.Receiver.Type)
-		if constructorFunc != nil && !hasTopLevelReceiver(constructorFunc, info) {
-			receiverType := fn.Receiver.Type
+		receiverType := fn.Receiver.Type
+		constructor := info.GetConstructor(receiverType)
+		receiverVarName := getReceiverVarName(receiverType)
+		if constructor != nil && !hasTopLevelReceiver(constructor, info) {
 			g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, trimPrefix(receiverType)).Block()
-			makeReceiverMiddleware(g, fn, info, m, errGuard) //RC
+
+			constructorCall := makeCallWithMiddleware(constructor, info, middlewares)
+			errGuard(g, List(Id(receiverVarName), Err()).Op("=").
+				Qual(info.Service.Name, constructor.Name).CallFunc(constructorCall),
+			)
 		}
 		injectOriginalMethodCall(g, fn, Id(receiverVarName).Dot(fn.Name))
 	} else {
@@ -463,19 +466,26 @@ func makeOriginalCall(
 	errGuard(g, Err().Op(":=").Id("response").Dot("Err"))
 }
 
-func makeReceiverMiddleware(
-	scope *Group, fn *parser.Function, info *PackageInfo,
-	m middlewaresMap, errGuard ifErrorGuard,
+func makeHandlerWrapper(
+	moduleId string, handlerBody func(*Group), info *PackageInfo, fn *parser.Function, file *Group,
+	args, returns *Statement,
 ) {
-	constructor := info.GetConstructor(fn.Receiver.Type)
-	recId := getReceiverVarName(fn.Receiver.Type)
-	if constructor == nil {
-		return
-	}
-	constructorCall := makeCallWithMiddleware(constructor, info, m)
+	handler, _, _ := getMethodTypes(fn, moduleId)
+	receiverVarName := getReceiverVarName(fn.Receiver.Type)
 
-	errGuard(
-		scope,
-		List(Id(recId), Err()).Op("=").Qual(info.Service.Name, constructor.Name).CallFunc(constructorCall),
-	)
+	wrapperParams := func(g *Group) {
+		if !hasReceiver(fn) {
+			return
+		}
+		constructorFunc := info.GetConstructor(fn.Receiver.Type)
+		if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
+			g.Id(receiverVarName).Op("*").Qual(info.Service.Name, trimPrefix(fn.Receiver.Type))
+		} else {
+			g.Add(getConstructorDepsSignature(constructorFunc, info))
+		}
+	}
+
+	file.Func().Id(handler).ParamsFunc(wrapperParams).Func().Params(args).Params(returns).Block(
+		Return(Func().Params(args).Params(returns).BlockFunc(handlerBody)),
+	).Line()
 }

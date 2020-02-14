@@ -29,8 +29,7 @@ func GetServerMainHTTP(info *PackageInfo) (string, error) {
 }
 
 func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
-	handler, request, response := getMethodTypes(fn, httpModuleId)
-	receiverVarName := getReceiverVarName(fn.Receiver.Type)
+	_, request, response := getMethodTypes(fn, httpModuleId)
 	handlerBody := func(g *Group) {
 		//Bind request params
 		//Empty argument needs to avoid errors if no other arguments exist
@@ -59,23 +58,11 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 		g.Return(Id("ctx").Dot("JSON").Call(Qual("net/http", "StatusOK"), Id("response")))
 	}
 
-	//Create handler methods that use closure to inject receiver if it exist.
-	file.Func().Id(handler).ParamsFunc(func(g *Group) {
-		if !hasReceiver(fn) {
-			return
-		}
-		constructorFunc := info.GetConstructor(fn.Receiver.Type)
-		if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
-			g.Id(receiverVarName).Op("*").Qual(info.Service.Name, trimPrefix(fn.Receiver.Type))
-		} else {
-			g.Add(getConstructorDepsSignature(constructorFunc, info))
-		}
-	}).Params(
-		Func().Params(Qual(echoPath, "Context")).Params(Error()),
-	).Block(Return(Func().
-		Params(Id("ctx").Qual(echoPath, "Context")).
-		Params(Err().Error()).BlockFunc(handlerBody),
-	)).Line()
+	makeHandlerWrapper(
+		httpModuleId, handlerBody, info, fn, file,
+		Id("ctx").Qual(echoPath, "Context"),
+		Err().Error(),
+	)
 
 }
 

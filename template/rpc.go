@@ -29,8 +29,6 @@ func GetServerMainRPC(info *PackageInfo) (string, error) {
 }
 
 func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
-	handler, request, response := getMethodTypes(fn, rpcModuleId)
-	receiverVarName := getReceiverVarName(fn.Receiver.Type)
 
 	handlerBody := func(g *Group) {
 		middlewares := middlewaresMap{"getEnv": Id(getEnvHelper)}
@@ -38,23 +36,13 @@ func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 		g.Return(Nil())
 	}
 
-	//Create handler methods that use closure to inject receiver if it exist.
-	file.Func().Id(handler).ParamsFunc(func(g *Group) {
-		if !hasReceiver(fn) {
-			return
-		}
-		constructorFunc := info.GetConstructor(fn.Receiver.Type)
-		if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
-			g.Id(receiverVarName).Op("*").Qual(info.Service.Name, trimPrefix(fn.Receiver.Type))
-		} else {
-			g.Add(getConstructorDepsSignature(constructorFunc, info))
-		}
-	}).Params(
-		Func().Params(Qual("context", "Context"), Id(request), Id(response)).Params(Error()), //RC
-	).Block(Return(Func().
-		Params(Id("ctx").Qual("context", "Context"), Id("request").Id(request), Id("response").Id(response)). //RC
-		Params(Err().Error()).BlockFunc(handlerBody),
-	)).Line()
+	_, request, response := getMethodTypes(fn, rpcModuleId)
+
+	makeHandlerWrapper(
+		rpcModuleId, handlerBody, info, fn, file,
+		List(Id("ctx").Qual("context", "Context"), Id("request").Id(request), Id("response").Id(response)),
+		Err().Error(),
+	)
 }
 
 func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
