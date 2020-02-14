@@ -267,7 +267,7 @@ func makeReceiverInitialization(recId string, scope *Group, constructor *parser.
 
 }
 
-func makeInitService(info *PackageInfo, main *Group, f *File) {
+func makeInitService(info *PackageInfo, main *Group) {
 	if !info.IsInitService {
 		return
 	}
@@ -323,6 +323,8 @@ func addGetEnvHelper(f *File) {
 		Return(Qual("os", "Getenv").Call(Id("envName"))),
 	)
 }
+
+type ifErrorGuard = func(scope *Group, statement *Statement)
 
 func addIfErrorGuard(scope *Group, statement *Statement, code Code) {
 	scope.If(
@@ -425,4 +427,55 @@ func makeHandlerWrapperCall(fn *parser.Function, info *PackageInfo, createDep fu
 			}))
 		}
 	}
+}
+
+func makeHandlers(
+	info *PackageInfo, f *File,
+	makeHandler func(info *PackageInfo, fn *parser.Function, file *Group),
+) {
+	f.Comment(fmt.Sprintf("API handler methods")).Line()
+	forEachFunction(info, true, func(fn *parser.Function) {
+		makeHandler(info, fn, f.Group)
+	})
+}
+
+//makeOriginalCall creates dependencies and make original method call
+func makeOriginalCall(
+	info *PackageInfo, fn *parser.Function, g *Group,
+	m middlewaresMap, errGuard ifErrorGuard,
+) {
+	receiverVarName := getReceiverVarName(fn.Receiver.Type)
+
+	//If method has receiver generate receiver middleware code
+	//else just call public package method
+	if hasReceiver(fn) {
+		constructorFunc := info.GetConstructor(fn.Receiver.Type)
+		if constructorFunc != nil && !hasTopLevelReceiver(constructorFunc, info) {
+			receiverType := fn.Receiver.Type
+			g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, trimPrefix(receiverType)).Block()
+			makeReceiverMiddleware(g, fn, info, m, errGuard) //RC
+		}
+		injectOriginalMethodCall(g, fn, Id(receiverVarName).Dot(fn.Name))
+	} else {
+		injectOriginalMethodCall(g, fn, Qual(info.Service.Name, fn.Name))
+	}
+
+	errGuard(g, Err().Op(":=").Id("response").Dot("Err"))
+}
+
+func makeReceiverMiddleware(
+	scope *Group, fn *parser.Function, info *PackageInfo,
+	m middlewaresMap, errGuard ifErrorGuard,
+) {
+	constructor := info.GetConstructor(fn.Receiver.Type)
+	recId := getReceiverVarName(fn.Receiver.Type)
+	if constructor == nil {
+		return
+	}
+	constructorCall := makeCallWithMiddleware(constructor, info, m)
+
+	errGuard(
+		scope,
+		List(Id(recId), Err()).Op("=").Qual(info.Service.Name, constructor.Name).CallFunc(constructorCall),
+	)
 }

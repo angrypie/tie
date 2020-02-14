@@ -10,36 +10,26 @@ import (
 
 const echoPath = "github.com/labstack/echo"
 const echoMiddleware = "github.com/labstack/echo/middleware"
+const httpModuleId = "HTTP"
 
 func GetServerMainHTTP(info *PackageInfo) (string, error) {
-	f := NewFile("http")
+	f := NewFile(strings.ToLower(httpModuleId))
 
-	f.Func().Id("Main").Params().BlockFunc(func(g *Group) {
-		makeGracefulShutdown(info, g, f)
-		makeInitService(info, g, f)
+	f.Func().Id("Main").Params().BlockFunc(func(main *Group) {
+		makeGracefulShutdown(info, main, f)
+		makeInitService(info, main)
 
-		makeHTTPServer(info, g, f)
+		makeStartHTTPServer(info, main, f)
 	})
+	makeHandlers(info, f, makeHTTPHandler)
+	f.Add(createReqRespTypes(httpModuleId, info))
+	makeHelpersHTTP(f)
 
 	return fmt.Sprintf("%#v", f), nil
 }
 
-func makeHTTPServer(info *PackageInfo, main *Group, f *File) {
-	makeStartHTTPServer(info, main, f)
-	makeHTTPRequestResponseTypes(info, main, f)
-	makeHTTPHandlers(info, main, f)
-	makeHelpersHTTP(f)
-}
-
-func makeHTTPHandlers(info *PackageInfo, main *Group, f *File) {
-	f.Comment(fmt.Sprintf("API handler methods (%s)", "HTTP")).Line()
-	forEachFunction(info, true, func(fn *parser.Function) {
-		makeHTTPHandler(info, fn, f.Group)
-	})
-}
-
 func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
-	handler, request, response := getMethodTypes(fn, "HTTP")
+	handler, request, response := getMethodTypes(fn, httpModuleId)
 	receiverVarName := getReceiverVarName(fn.Receiver.Type)
 	handlerBody := func(g *Group) {
 		//Bind request params
@@ -60,24 +50,11 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 		//Create response object
 		g.Id("response").Op(":=").New(Id(response))
 
-		//If method has receiver generate receiver middleware code
-		//else just call public package method
-		if hasReceiver(fn) {
-			constructorFunc := info.GetConstructor(fn.Receiver.Type)
-			if constructorFunc != nil && !hasTopLevelReceiver(constructorFunc, info) {
-				receiverType := fn.Receiver.Type
-				g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, trimPrefix(receiverType)).Block()
-				makeReceiverMiddlewareHTTP(receiverVarName, g, constructorFunc, info)
-			}
-			injectOriginalMethodCall(g, fn, Id(receiverVarName).Dot(fn.Name))
-		} else {
-			injectOriginalMethodCall(g, fn, Qual(info.Service.Name, fn.Name))
+		middlewares := middlewaresMap{
+			"getEnv":    Id(getEnvHelper),
+			"getHeader": Id(getHeaderHelper).Call(Id("ctx")),
 		}
-
-		ifErrorReturnErrHTTP(
-			g,
-			Err().Op(":=").Id("response").Dot("Err"),
-		)
+		makeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrHTTP)
 
 		g.Return(Id("ctx").Dot("JSON").Call(Qual("net/http", "StatusOK"), Id("response")))
 	}
@@ -102,10 +79,6 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 
 }
 
-func makeHTTPRequestResponseTypes(info *PackageInfo, main *Group, f *File) {
-	f.Add(createReqRespTypes("HTTP", info))
-}
-
 func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 	main.Go().Id("startServer").Call()
 
@@ -117,7 +90,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 
 		//.2 Add handler for each function.
 		forEachFunction(info, true, func(fn *parser.Function) {
-			handler, _, _ := getMethodTypes(fn, "HTTP")
+			handler, _, _ := getMethodTypes(fn, httpModuleId)
 			route := fmt.Sprintf("%s/%s", fn.Receiver.Type, fn.Name)
 
 			g.Id("server").Dot("POST").Call(
@@ -139,22 +112,6 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 		g.Id("server").Dot("Start").Call(Id("address"))
 
 	})
-}
-
-func makeReceiverMiddlewareHTTP(recId string, scope *Group, constructor *parser.Function, info *PackageInfo) {
-	if constructor == nil {
-		return
-	}
-
-	constructorCall := makeCallWithMiddleware(constructor, info, middlewaresMap{
-		"getEnv":    Id(getEnvHelper),
-		"getHeader": Id(getHeaderHelper).Call(Id("ctx")),
-	})
-
-	ifErrorReturnErrHTTP(
-		scope,
-		List(Id(recId), Err()).Op("=").Qual(info.Service.Name, constructor.Name).CallFunc(constructorCall),
-	)
 }
 
 func ifErrorReturnErrHTTP(scope *Group, statement *Statement) {
