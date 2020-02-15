@@ -9,7 +9,7 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
-func getMethodTypes(fn *parser.Function, postfix string) (handler, request, response string) {
+func GetMethodTypes(fn *parser.Function, postfix string) (handler, request, response string) {
 	method, receiver := fn.Name, fn.Receiver.Type
 	handler = fmt.Sprintf("%s%s%sHandler", receiver, method, postfix)
 	request = fmt.Sprintf("%s%s%sRequest", receiver, method, postfix)
@@ -22,15 +22,7 @@ func isArgNameAreDTO(name string) bool {
 	return n == "requestdto" || n == "responsedto"
 }
 
-var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
-
-func toSnakeCase(str string) string {
-	return strings.ToLower(
-		matchAllCap.ReplaceAllString(str, "${1}_${2}"),
-	)
-}
-
-func getReceiverVarName(receiverTypeName string) string {
+func GetReceiverVarName(receiverTypeName string) string {
 	if receiverTypeName == "" {
 		return ""
 	}
@@ -41,8 +33,8 @@ func hasReceiver(fn *parser.Function) bool {
 	return fn.Receiver.Type != ""
 }
 
-//hasTopLevelReceiver returns true if construcotor has other receiver as argumenet.
-func hasTopLevelReceiver(fn *parser.Function, info *PackageInfo) bool {
+//HasTopLevelReceiver returns true if construcotor has other receiver as argumenet.
+func HasTopLevelReceiver(fn *parser.Function, info *PackageInfo) bool {
 	if fn == nil {
 		return false
 	}
@@ -54,7 +46,7 @@ func hasTopLevelReceiver(fn *parser.Function, info *PackageInfo) bool {
 	return true
 }
 
-func forEachFunction(info *PackageInfo, skipInit bool, cb func(*parser.Function)) {
+func ForEachFunction(info *PackageInfo, skipInit bool, cb func(*parser.Function)) {
 	fns := info.Functions
 	if skipInit {
 		fns = getFnsWithoutConstructors(info)
@@ -105,24 +97,7 @@ func isConventionalConstructor(fn *parser.Function) (ok bool, _type string) {
 	return rets[match[1]], match[1]
 }
 
-//createCombinedHandlerArgs creates handler arguments that consists of
-//original method and constructor arguments (without helpers arguments).
-func createCombinedHandlerArgs(fn *parser.Function, info *PackageInfo) []parser.Field {
-	arguments := fn.Arguments
-	cons := info.GetConstructor(fn.Receiver.Type)
-	if cons != nil && !hasTopLevelReceiver(cons, info) {
-		for _, arg := range cons.Arguments {
-			//Don't include heplers
-			if info.IsReceiverType(arg.Type) || arg.Name == "getHeader" || arg.Name == "getEnv" {
-				continue
-			}
-			arguments = append(arguments, arg)
-		}
-	}
-	return arguments
-}
-
-func trimPrefix(str string) string {
+func TrimPrefix(str string) string {
 	return strings.TrimPrefix(str, "*")
 }
 
@@ -134,7 +109,7 @@ func isFuncType(t string) bool {
 
 func getConstructorDepsSignature(fn *parser.Function, info *PackageInfo) (code Code) {
 	return getConstructorDeps(fn, info, func(field parser.Field, g *Group) {
-		g.Id(getReceiverVarName(field.Type)).Op("*").Qual(info.Service.Name, trimPrefix(field.Type))
+		g.Id(GetReceiverVarName(field.Type)).Op("*").Qual(info.Service.Name, TrimPrefix(field.Type))
 	})
 }
 
@@ -158,17 +133,17 @@ func getConstructorDeps(
 	})
 }
 
-func createArgsListFunc(args []parser.Field, params ...string) func(*Group) {
-	return createArgsList(args, func(arg *Statement, field parser.Field) *Statement {
+func CreateArgsListFunc(args []parser.Field, params ...string) func(*Group) {
+	return CreateArgsList(args, func(arg *Statement, field parser.Field) *Statement {
 		return arg
 	}, params...)
 }
 
-//createArgsList creates list from parser.Field array.
+//CreateArgsList creates list from parser.Field array.
 //Transform function are used to modify each element list.
 //Optional param 1 is used to specify prefix for each element.
 //Optional param 2 is used to specify allowed argument types (format: type1,type2,).
-func createArgsList(
+func CreateArgsList(
 	args []parser.Field,
 	transform func(*Statement, parser.Field) *Statement,
 	params ...string,
@@ -200,13 +175,13 @@ func createArgsList(
 	}
 }
 
-func createReqRespTypes(postfix string, info *PackageInfo) Code {
+func CreateReqRespTypes(postfix string, info *PackageInfo) Code {
 	code := Comment(fmt.Sprintf("Request/Response types (%s)", postfix)).Line()
 
-	forEachFunction(info, true, func(fn *parser.Function) {
-		arguments := createCombinedHandlerArgs(fn, info)
+	ForEachFunction(info, true, func(fn *parser.Function) {
+		arguments := CreateCombinedHandlerArgs(fn, info)
 
-		_, reqName, respName := getMethodTypes(fn, postfix)
+		_, reqName, respName := GetMethodTypes(fn, postfix)
 		code.Add(createTypeFromArgs(reqName, arguments, info))
 		code.Line()
 		code.Add(createTypeFromArgs(respName, fn.Results, info))
@@ -239,8 +214,8 @@ func createTypeFromArgs(name string, args []parser.Field, info *PackageInfo) Cod
 }
 
 func injectOriginalMethodCall(g *Group, fn *parser.Function, method Code) {
-	g.ListFunc(createArgsListFunc(fn.Results, "response")).
-		Op("=").Add(method).Call(ListFunc(createArgsListFunc(fn.Arguments, "request")))
+	g.ListFunc(CreateArgsListFunc(fn.Results, "response")).
+		Op("=").Add(method).Call(ListFunc(CreateArgsListFunc(fn.Arguments, "request")))
 }
 
 func makeReceiverInitialization(recId string, scope *Group, constructor *parser.Function, info *PackageInfo) {
@@ -248,7 +223,7 @@ func makeReceiverInitialization(recId string, scope *Group, constructor *parser.
 		return
 	}
 
-	constructorCall := makeCallWithMiddleware(constructor, info, middlewaresMap{"getEnv": Id(getEnvHelper)})
+	constructorCall := makeCallWithMiddleware(constructor, info, MiddlewaresMap{"getEnv": Id(GetEnvHelper)})
 
 	scope.If(
 		List(Id(recId), Err()).Op("=").Qual(info.Service.Name, constructor.Name).CallFunc(constructorCall),
@@ -267,7 +242,7 @@ func makeReceiverInitialization(recId string, scope *Group, constructor *parser.
 
 }
 
-func makeInitService(info *PackageInfo, main *Group) {
+func MakeInitService(info *PackageInfo, main *Group) {
 	if !info.IsInitService {
 		return
 	}
@@ -284,7 +259,7 @@ func makeWaitGuard(main *Group) {
 	main.Op("<-").Make(Chan().Bool())
 }
 
-func makeGracefulShutdown(info *PackageInfo, g *Group, f *File) {
+func MakeGracefulShutdown(info *PackageInfo, g *Group, f *File) {
 	functionName := "gracefulShutDown"
 	g.Id(functionName).Call()
 
@@ -316,17 +291,17 @@ func makeGracefulShutdown(info *PackageInfo, g *Group, f *File) {
 	)
 }
 
-const getEnvHelper = "getEnvHelper"
+const GetEnvHelper = "getEnvHelper"
 
-func addGetEnvHelper(f *File) {
-	f.Func().Id(getEnvHelper).Params(Id("envName").String()).String().Block(
+func AddGetEnvHelper(f *File) {
+	f.Func().Id(GetEnvHelper).Params(Id("envName").String()).String().Block(
 		Return(Qual("os", "Getenv").Call(Id("envName"))),
 	)
 }
 
-type ifErrorGuard = func(scope *Group, statement *Statement)
+type IfErrorGuard = func(scope *Group, statement *Statement)
 
-func addIfErrorGuard(scope *Group, statement *Statement, code Code) {
+func AddIfErrorGuard(scope *Group, statement *Statement, code Code) {
 	scope.If(
 		statement,
 		Err().Op("!=").Nil(),
@@ -335,10 +310,10 @@ func addIfErrorGuard(scope *Group, statement *Statement, code Code) {
 	)
 }
 
-type middlewaresMap = map[string]*Statement
+type MiddlewaresMap = map[string]*Statement
 
-func makeCallWithMiddleware(fn *parser.Function, info *PackageInfo, middlewares middlewaresMap) func(g *Group) {
-	return createArgsList(fn.Arguments, func(arg *Statement, field parser.Field) *Statement {
+func makeCallWithMiddleware(fn *parser.Function, info *PackageInfo, middlewares MiddlewaresMap) func(g *Group) {
+	return CreateArgsList(fn.Arguments, func(arg *Statement, field parser.Field) *Statement {
 		fieldName := field.Name
 
 		for name, middleware := range middlewares {
@@ -349,7 +324,7 @@ func makeCallWithMiddleware(fn *parser.Function, info *PackageInfo, middlewares 
 
 		//Inject receiver dependencie
 		if info.IsReceiverType(field.Type) {
-			return Id(getReceiverVarName(field.Type))
+			return Id(GetReceiverVarName(field.Type))
 		}
 
 		if isFuncType(field.Type) {
@@ -358,11 +333,13 @@ func makeCallWithMiddleware(fn *parser.Function, info *PackageInfo, middlewares 
 
 		//TODO send nil for pointer or empty object
 		//Bind request argument
-		return ListFunc(createArgsListFunc([]parser.Field{field}, "request"))
+		return ListFunc(CreateArgsListFunc([]parser.Field{field}, "request"))
 	})
 }
 
-func makeStartServerInit(info *PackageInfo, g *Group) {
+const rndport = "github.com/angrypie/rndport"
+
+func MakeStartServerInit(info *PackageInfo, g *Group) {
 	//Declare err and get rid of ''unused' error.
 	g.Var().Err().Error()
 	g.Id("_").Op("=").Err()
@@ -377,18 +354,18 @@ func makeStartServerInit(info *PackageInfo, g *Group) {
 	}
 }
 
-func makeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map[string]bool) {
+func MakeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map[string]bool) {
 	receiversCreated = make(map[string]bool) //RC
 	receiversProcessed := make(map[string]bool)
 	createReceivers := func(receiverType string, constructorFunc *parser.Function) {
 		receiversProcessed[receiverType] = true
 		//Skip not top level receivers.
-		if constructorFunc != nil && !hasTopLevelReceiver(constructorFunc, info) {
+		if constructorFunc != nil && !HasTopLevelReceiver(constructorFunc, info) {
 			return
 		}
 		receiversCreated[receiverType] = true
-		receiverVarName := getReceiverVarName(receiverType)
-		g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, trimPrefix(receiverType)).Block()
+		receiverVarName := GetReceiverVarName(receiverType)
+		g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, TrimPrefix(receiverType)).Block()
 		makeReceiverInitialization(receiverVarName, g, constructorFunc, info)
 	}
 	//Create receivers for each constructor
@@ -397,7 +374,7 @@ func makeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map
 	}
 
 	//Create receivers that does not have constructor
-	forEachFunction(info, false, func(fn *parser.Function) {
+	ForEachFunction(info, false, func(fn *parser.Function) {
 		receiverType := fn.Receiver.Type
 		//Skip function if it does not have receiver or receiver already created.
 		if !hasReceiver(fn) || receiversProcessed[receiverType] {
@@ -410,48 +387,48 @@ func makeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map
 	return receiversCreated
 }
 
-func makeHandlerWrapperCall(fn *parser.Function, info *PackageInfo, createDep func(string) Code) func(*Group) {
+func MakeHandlerWrapperCall(fn *parser.Function, info *PackageInfo, createDep func(string) Code) func(*Group) {
 	constructorFunc := info.GetConstructor(fn.Receiver.Type)
-	receiverVarName := getReceiverVarName(fn.Receiver.Type)
+	receiverVarName := GetReceiverVarName(fn.Receiver.Type)
 	return func(g *Group) {
 		if !hasReceiver(fn) {
 			return
 		}
-		if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
+		if constructorFunc == nil || HasTopLevelReceiver(constructorFunc, info) {
 			//Inject receiver to http handler.
 			g.Add(createDep(receiverVarName))
 		} else {
 			//Inject dependencies to http handler for non top level receiver.
 			g.Add(getConstructorDeps(constructorFunc, info, func(field parser.Field, g *Group) {
-				g.Add(createDep(getReceiverVarName(field.Type)))
+				g.Add(createDep(GetReceiverVarName(field.Type)))
 			}))
 		}
 	}
 }
 
-func makeHandlers(
+func MakeHandlers(
 	info *PackageInfo, f *File,
 	makeHandler func(info *PackageInfo, fn *parser.Function, file *Group),
 ) {
 	f.Comment(fmt.Sprintf("API handler methods")).Line()
-	forEachFunction(info, true, func(fn *parser.Function) {
+	ForEachFunction(info, true, func(fn *parser.Function) {
 		makeHandler(info, fn, f.Group)
 	})
 }
 
-//makeOriginalCall creates dependencies and make original method call
-func makeOriginalCall(
+//MakeOriginalCall creates dependencies and make original method call (response object must be created)
+func MakeOriginalCall(
 	info *PackageInfo, fn *parser.Function, g *Group,
-	middlewares middlewaresMap, errGuard ifErrorGuard,
+	middlewares MiddlewaresMap, errGuard IfErrorGuard,
 ) {
 	//If method has receiver generate receiver middleware code
 	//else just call public package method
 	if hasReceiver(fn) {
 		receiverType := fn.Receiver.Type
 		constructor := info.GetConstructor(receiverType)
-		receiverVarName := getReceiverVarName(receiverType)
-		if constructor != nil && !hasTopLevelReceiver(constructor, info) {
-			g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, trimPrefix(receiverType)).Block()
+		receiverVarName := GetReceiverVarName(receiverType)
+		if constructor != nil && !HasTopLevelReceiver(constructor, info) {
+			g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, TrimPrefix(receiverType)).Block()
 
 			constructorCall := makeCallWithMiddleware(constructor, info, middlewares)
 			errGuard(g, List(Id(receiverVarName), Err()).Op("=").
@@ -466,20 +443,20 @@ func makeOriginalCall(
 	errGuard(g, Err().Op(":=").Id("response").Dot("Err"))
 }
 
-func makeHandlerWrapper(
+func MakeHandlerWrapper(
 	moduleId string, handlerBody func(*Group), info *PackageInfo, fn *parser.Function, file *Group,
 	args, returns *Statement,
 ) {
-	handler, _, _ := getMethodTypes(fn, moduleId)
-	receiverVarName := getReceiverVarName(fn.Receiver.Type)
+	handler, _, _ := GetMethodTypes(fn, moduleId)
+	receiverVarName := GetReceiverVarName(fn.Receiver.Type)
 
 	wrapperParams := func(g *Group) {
 		if !hasReceiver(fn) {
 			return
 		}
 		constructorFunc := info.GetConstructor(fn.Receiver.Type)
-		if constructorFunc == nil || hasTopLevelReceiver(constructorFunc, info) {
-			g.Id(receiverVarName).Op("*").Qual(info.Service.Name, trimPrefix(fn.Receiver.Type))
+		if constructorFunc == nil || HasTopLevelReceiver(constructorFunc, info) {
+			g.Id(receiverVarName).Op("*").Qual(info.Service.Name, TrimPrefix(fn.Receiver.Type))
 		} else {
 			g.Add(getConstructorDepsSignature(constructorFunc, info))
 		}
@@ -488,4 +465,21 @@ func makeHandlerWrapper(
 	file.Func().Id(handler).ParamsFunc(wrapperParams).Func().Params(args).Params(returns).Block(
 		Return(Func().Params(args).Params(returns).BlockFunc(handlerBody)),
 	).Line()
+}
+
+//CreateCombinedHandlerArgs creates handler arguments that consists of
+//original method and constructor arguments (without helpers arguments).
+func CreateCombinedHandlerArgs(fn *parser.Function, info *PackageInfo) []parser.Field {
+	arguments := fn.Arguments
+	cons := info.GetConstructor(fn.Receiver.Type)
+	if cons != nil && !HasTopLevelReceiver(cons, info) {
+		for _, arg := range cons.Arguments {
+			//Don't include heplers
+			if info.IsReceiverType(arg.Type) || arg.Name == "getHeader" || arg.Name == "getEnv" {
+				continue
+			}
+			arguments = append(arguments, arg)
+		}
+	}
+	return arguments
 }

@@ -7,6 +7,8 @@ import (
 
 	"github.com/angrypie/tie/parser"
 	"github.com/angrypie/tie/template"
+	"github.com/angrypie/tie/template/httpmod"
+	"github.com/angrypie/tie/template/rpcmod"
 	"github.com/angrypie/tie/types"
 )
 
@@ -84,14 +86,14 @@ func (upgrader *Upgrader) Make() (err error) {
 	types := strings.Split(upgrader.Parser.Service.Type, " ")
 
 	rpc := func() error {
-		serverStr, err := template.GetServerMainRPC(info)
+		serverStr, err := rpcmod.GetModule(info)
 		upgrader.Server["rpc"] = bytes.NewBufferString(serverStr)
 		return err
 	}
 
 	modules := map[string]func() error{
 		"http": func() error {
-			serverStr, err := template.GetServerMainHTTP(info)
+			serverStr, err := httpmod.GetModule(info)
 			upgrader.Server["http"] = bytes.NewBufferString(serverStr)
 			return err
 		},
