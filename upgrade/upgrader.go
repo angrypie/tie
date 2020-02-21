@@ -77,7 +77,6 @@ func (upgrader *Upgrader) Replace(imports []string) error {
 func (upgrader *Upgrader) Make() (err error) {
 	p := upgrader.Parser
 	//TODO create subpackage for each upgrader
-	info := template.NewPackageInfoFromParser(p)
 
 	types := strings.Split(upgrader.Parser.Service.Type, " ")
 
@@ -89,8 +88,8 @@ func (upgrader *Upgrader) Make() (err error) {
 
 	modules := map[string]func() error{
 		"http": func() error {
-			serverStr, err := httpmod.GetModule(info)
-			upgrader.Server["http"] = bytes.NewBufferString(serverStr)
+			module := httpmod.NewModule(p)
+			upgrader.Server["http"] = bytes.NewBufferString(module.Generate().Code)
 			return err
 		},
 		"rpc": rpc,
