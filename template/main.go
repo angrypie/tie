@@ -39,11 +39,9 @@ func (info *PackageInfo) GetConstructor(t string) *parser.Function {
 	return info.Constructors[t]
 }
 
-func NewPackageInfoFromParser(p *parser.Parser) (*PackageInfo, error) {
-	functions, err := p.GetFunctions()
-	if err != nil {
-		return nil, err
-	}
+func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
+	functions := p.GetFunctions()
+
 	var fns []*parser.Function
 	for _, fn := range functions {
 		if name := fn.Name; name == "InitService" || name == "StopService" {
@@ -76,7 +74,7 @@ func NewPackageInfoFromParser(p *parser.Parser) (*PackageInfo, error) {
 		}
 	}
 
-	return &info, nil
+	return &info
 }
 
 func createErrLog(msg string) *Statement {

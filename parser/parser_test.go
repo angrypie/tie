@@ -15,10 +15,7 @@ func TestParser(t *testing.T) {
 		t.Error(err)
 	}
 
-	functions, err := parser.GetFunctions()
-	if err != nil {
-		t.Error(err)
-	}
+	functions := parser.GetFunctions()
 
 	if len(functions) == 0 {
 		t.Error("GetFunctions should return more than 0 functions")

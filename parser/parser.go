@@ -79,7 +79,7 @@ func inspectNodesInPkg(pkg *ast.Package, inspect func(node ast.Node) bool) {
 }
 
 //GetFunctions returns exported functions from package
-func (p *Parser) GetFunctions() (functions []*Function, err error) {
+func (p *Parser) GetFunctions() (functions []*Function) {
 	inspectNodesInPkg(p.pkg, func(node ast.Node) bool {
 		switch n := node.(type) {
 		case *ast.FuncDecl:
@@ -89,7 +89,7 @@ func (p *Parser) GetFunctions() (functions []*Function, err error) {
 		}
 		return true
 	})
-	return functions, nil
+	return
 }
 
 //GetTypes returns exported types from package

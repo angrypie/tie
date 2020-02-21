@@ -14,7 +14,13 @@ const rpcModuleId = "RPC"
 
 type PackageInfo = template.PackageInfo
 
-func GetModule(info *PackageInfo) (string, error) {
+func NewModule(p *parser.Parser) template.Module {
+	deps := []template.Module{NewClientModule(p)}
+	return template.NewStandartModule("rpcmod", GenerateServer, p, deps)
+}
+
+func GenerateServer(p *parser.Parser) string {
+	info := template.NewPackageInfoFromParser(p)
 	f := NewFile(strings.ToLower(rpcModuleId))
 
 	f.Func().Id("Main").Params().BlockFunc(func(main *Group) {
@@ -28,11 +34,10 @@ func GetModule(info *PackageInfo) (string, error) {
 	f.Add(template.CreateReqRespTypes(rpcModuleId, info))
 	template.AddGetEnvHelper(f)
 
-	return fmt.Sprintf("%#v", f), nil
+	return fmt.Sprintf("%#v", f)
 }
 
 func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
-
 	handlerBody := func(g *Group) {
 		middlewares := template.MiddlewaresMap{"getEnv": Id(template.GetEnvHelper)}
 		template.MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC)

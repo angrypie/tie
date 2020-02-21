@@ -1,14 +1,15 @@
 package template
 
+import "github.com/angrypie/tie/parser"
+
 type Module interface {
 	Name() string
-	Generate() (Package, error)
+	Generate() *Package
 	Deps() []Module
 }
 
 type Package struct {
 	Name string
-	Path string
 	Code string
 }
 
@@ -25,5 +26,41 @@ func TraverseModules(module Module, cb func(p Module) error) (err error) {
 		}
 	}
 
+	return
+}
+
+type StandartModule struct {
+	name     string
+	Parser   *parser.Parser
+	deps     []Module
+	generate Generator
+}
+
+type Generator = func(*parser.Parser) string
+
+func NewStandartModule(name string, gen Generator, p *parser.Parser, deps []Module) *StandartModule {
+	return &StandartModule{
+		name:   name,
+		Parser: p,
+		deps:   deps,
+	}
+}
+
+func (module StandartModule) Name() string {
+	return module.name
+}
+
+func (module StandartModule) Deps() []Module {
+	return module.deps
+}
+
+func (module StandartModule) Generate() (pkg *Package) {
+	if module.generate == nil {
+		return
+	}
+	pkg = &Package{
+		Name: module.Name(),
+		Code: module.generate(module.Parser),
+	}
 	return
 }
