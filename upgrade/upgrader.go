@@ -77,17 +77,13 @@ func (upgrader *Upgrader) Replace(imports []string) error {
 func (upgrader *Upgrader) Make() (err error) {
 	p := upgrader.Parser
 	//TODO create subpackage for each upgrader
-
-	info, err := template.NewPackageInfoFromParser(p)
-	if err != nil {
-		return err
-	}
+	info := template.NewPackageInfoFromParser(p)
 
 	types := strings.Split(upgrader.Parser.Service.Type, " ")
 
 	rpc := func() error {
-		serverStr, err := rpcmod.GetModule(info)
-		upgrader.Server["rpc"] = bytes.NewBufferString(serverStr)
+		module := rpcmod.NewModule(p)
+		upgrader.Server["rpc"] = bytes.NewBufferString(module.Generate().Code)
 		return err
 	}
 

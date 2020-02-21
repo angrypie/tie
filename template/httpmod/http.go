@@ -16,7 +16,12 @@ const httpModuleId = "HTTP"
 
 type PackageInfo = template.PackageInfo
 
-func GetModule(info *PackageInfo) (string, error) {
+func NewModule(p *parser.Parser) template.Module {
+	return template.NewStandartModule("httpmod", GenerateServer, p, nil)
+}
+
+func GenerateServer(p *parser.Parser) string {
+	info := template.NewPackageInfoFromParser(p)
 	f := NewFile(strings.ToLower(httpModuleId))
 
 	f.Func().Id("Main").Params().BlockFunc(func(main *Group) {
@@ -29,7 +34,7 @@ func GetModule(info *PackageInfo) (string, error) {
 	f.Add(template.CreateReqRespTypes(httpModuleId, info))
 	makeHelpersHTTP(f)
 
-	return fmt.Sprintf("%#v", f), nil
+	return fmt.Sprintf("%#v", f)
 }
 
 func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
