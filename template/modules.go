@@ -40,9 +40,10 @@ type Generator = func(*parser.Parser) string
 
 func NewStandartModule(name string, gen Generator, p *parser.Parser, deps []Module) *StandartModule {
 	return &StandartModule{
-		name:   name,
-		Parser: p,
-		deps:   deps,
+		name:     name,
+		Parser:   p,
+		deps:     deps,
+		generate: gen,
 	}
 }
 
