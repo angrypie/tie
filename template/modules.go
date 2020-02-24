@@ -13,14 +13,14 @@ type Package struct {
 	Code string
 }
 
-func TraverseModules(module Module, cb func(p Module) error) (err error) {
-	err = cb(module)
+func TraverseModules(module Module, path []string, cb func(p Module, path []string) error) (err error) {
+	err = cb(module, path)
 	if err != nil {
 		return err
 	}
 
 	for _, dep := range module.Deps() {
-		err = TraverseModules(dep, cb)
+		err = TraverseModules(dep, append(path, module.Name()), cb)
 		if err != nil {
 			return err
 		}

@@ -18,7 +18,7 @@ func (upgrader *Upgrader) Build() error {
 //Build source will be tie_upgraded if target is main package or tie_server for any other cases.
 func (upgrader *Upgrader) BuildTo(dist string) error {
 	alias := upgrader.Parser.Service.Alias
-	buildDir := "tie_server_main"
+	buildDir := "tie_modules"
 	if upgrader.Parser.GetPackageName() == "main" {
 		buildDir = "tie_upgraded"
 	}

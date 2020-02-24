@@ -8,18 +8,30 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
-func GetMainPackage(packagePath string, modules []string) (data string, err error) {
+func GetMainPackage(packagePath string, modules []string) string {
 	f := NewFile("main")
 
 	f.Func().Id("main").Params().BlockFunc(func(g *Group) {
 		for _, module := range modules {
-			path := fmt.Sprintf("%s/%s", packagePath, module)
+			path := fmt.Sprintf("%s/tie_modules/%s", packagePath, module)
 			g.Qual(path, "Main").Call()
 		}
 		makeWaitGuard(g)
 	})
 
-	return fmt.Sprintf("%#v", f), nil
+	return fmt.Sprintf("%#v", f)
+}
+
+func NewMainModule(p *parser.Parser, deps []Module) Module {
+	var modules []string
+	for _, dep := range deps {
+		modules = append(modules, dep.Name())
+	}
+
+	generator := func(p *parser.Parser) string {
+		return GetMainPackage(p.Service.Name, modules)
+	}
+	return NewStandartModule("tie_modules", generator, p, deps)
 }
 
 type PackageInfo struct {

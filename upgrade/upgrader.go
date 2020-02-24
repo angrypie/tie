@@ -3,6 +3,9 @@ package upgrade
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"log"
+	"path"
 	"strings"
 
 	"github.com/angrypie/tie/parser"
@@ -10,6 +13,7 @@ import (
 	"github.com/angrypie/tie/template/httpmod"
 	"github.com/angrypie/tie/template/rpcmod"
 	"github.com/angrypie/tie/types"
+	"github.com/spf13/afero"
 )
 
 //Upgrader hold parsed package and uses templates to contruct new, upgraded, packages.
@@ -17,9 +21,8 @@ type Upgrader struct {
 	//RPC API client package
 	Client bytes.Buffer
 	//RPC or/and HTTP API server package
-	Server map[string]*bytes.Buffer
+	Module map[string]*bytes.Buffer
 	//Original package with replaced import.
-	Service       bytes.Buffer
 	Pkg           string
 	Parser        *parser.Parser
 	ServiceConfig *types.Service
@@ -31,7 +34,7 @@ func NewUpgrader(service types.Service) *Upgrader {
 		Pkg:           service.Name,
 		ServiceConfig: &service,
 		Parser:        parser.NewParser(&service),
-		Server:        make(map[string]*bytes.Buffer),
+		Module:        make(map[string]*bytes.Buffer),
 	}
 }
 
@@ -47,19 +50,15 @@ func (upgrader *Upgrader) Upgrade(imports []string) error {
 		return err
 	}
 
-	err = upgrader.Make()
+	err = upgrader.GenerateModules()
 	if err != nil {
 		return err
 	}
 
-	err = upgrader.Write()
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
-//Parse parses package and creates various structures for for fourther usage in templates
+//Parse parses package and creates various structures for for fourther usage in templates.
 func (upgrader *Upgrader) Parse() (err error) {
 	return upgrader.Parser.Parse(upgrader.Pkg)
 }
@@ -73,44 +72,68 @@ func (upgrader *Upgrader) Replace(imports []string) error {
 	return nil
 }
 
-//Make builds client, server, service packages to buffers using tempaltes
-func (upgrader *Upgrader) Make() (err error) {
+//GenerateModules genarates modules code.
+func (upgrader *Upgrader) GenerateModules() (err error) {
 	p := upgrader.Parser
-	//TODO create subpackage for each upgrader
+	servicePath := p.Package.Path
 
 	types := strings.Split(upgrader.Parser.Service.Type, " ")
 
-	rpc := func() error {
-		module := rpcmod.NewModule(p)
-		upgrader.Server["rpc"] = bytes.NewBufferString(module.Generate().Code)
+	var modules []template.Module
+
+	for _, serviceType := range types {
+		switch serviceType {
+		case "http":
+			modules = append(modules, httpmod.NewModule(p))
+		case "rpc":
+			modules = append(modules, rpcmod.NewModule(p))
+		default:
+			modules = append(modules, rpcmod.NewModule(p))
+		}
+	}
+
+	module := template.NewMainModule(p, modules)
+
+	template.TraverseModules(module, []string{""},
+		func(m template.Module, modulePath []string) (err error) {
+			fsPath := path.Join(servicePath, strings.Join(modulePath, "/"))
+			pkg := m.Generate()
+
+			log.Println(modulePath)
+			return writeHelper(fsPath, m.Name(), []byte(pkg.Code))
+		})
+	return err
+}
+
+//Clean removes files and directories created by Write method
+func (upgrader *Upgrader) Clean() error {
+	fs := afero.NewOsFs()
+	modulesDir := path.Join(upgrader.Parser.Package.Path, "tie_modules")
+
+	return fs.RemoveAll(modulesDir)
+}
+
+//writeHelper creates directory for package and write files.
+func writeHelper(path, dir string, files ...[]byte) error {
+	fs := afero.NewOsFs()
+	fullPath := fmt.Sprintf("%s/%s", path, dir)
+
+	err := fs.MkdirAll(fullPath, 0755)
+	if err != nil {
 		return err
 	}
 
-	modules := map[string]func() error{
-		"http": func() error {
-			module := httpmod.NewModule(p)
-			upgrader.Server["http"] = bytes.NewBufferString(module.Generate().Code)
-			return err
-		},
-		"rpc": rpc,
-		"":    rpc,
-	}
-
-	for _, serviceType := range types {
-		err := modules[serviceType]()
+	for index, file := range files {
+		err = afero.WriteFile(
+			fs,
+			fmt.Sprintf("%s/%d.go", fullPath, index),
+			file,
+			0644,
+		)
 		if err != nil {
 			return err
 		}
 	}
 
-	main, err := template.GetMainPackage(upgrader.Parser.Service.Name, upgrader.serverModulesDirs())
-	upgrader.Server["main"] = bytes.NewBufferString(main)
-	return err
-}
-
-func (upgrader Upgrader) serverModulesDirs() (modules []string) {
-	for module := range upgrader.Server {
-		modules = append(modules, "tie_server_"+module)
-	}
-	return
+	return nil
 }
