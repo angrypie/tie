@@ -2,7 +2,6 @@ package upgrade
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -38,18 +37,13 @@ func NewUpgrader(service types.Service) *Upgrader {
 }
 
 //Upgrade consequentialy calls Parse, Replace, Make and Write method
-func (upgrader *Upgrader) Upgrade(imports []string) error {
+func (upgrader *Upgrader) Upgrade(services []string) error {
 	err := upgrader.Parse()
 	if err != nil {
 		return err
 	}
 
-	err = upgrader.Replace(imports)
-	if err != nil {
-		return err
-	}
-
-	err = upgrader.GenerateModules()
+	err = upgrader.GenerateModules(services)
 	if err != nil {
 		return err
 	}
@@ -62,17 +56,8 @@ func (upgrader *Upgrader) Parse() (err error) {
 	return upgrader.Parser.Parse(upgrader.Pkg)
 }
 
-//Replace replaces each given import with RPC client import
-func (upgrader *Upgrader) Replace(imports []string) error {
-	ok := upgrader.Parser.UpgradeApiImports(imports)
-	if !ok {
-		return errors.New("import deleted but not added")
-	}
-	return nil
-}
-
 //GenerateModules genarates modules code.
-func (upgrader *Upgrader) GenerateModules() (err error) {
+func (upgrader *Upgrader) GenerateModules(services []string) (err error) {
 	p := upgrader.Parser
 	servicePath := p.Package.Path
 
@@ -85,9 +70,9 @@ func (upgrader *Upgrader) GenerateModules() (err error) {
 		case "http":
 			modules = append(modules, httpmod.NewModule(p))
 		case "rpc":
-			modules = append(modules, rpcmod.NewModule(p))
+			modules = append(modules, rpcmod.NewModule(p, services))
 		default:
-			modules = append(modules, rpcmod.NewModule(p))
+			modules = append(modules, rpcmod.NewModule(p, services))
 		}
 	}
 
@@ -111,7 +96,6 @@ func (upgrader *Upgrader) GenerateModules() (err error) {
 func (upgrader *Upgrader) Clean() error {
 	fs := afero.NewOsFs()
 	modulesDir := path.Join(upgrader.Parser.Package.Path, "tie_modules")
-
 	return fs.RemoveAll(modulesDir)
 }
 

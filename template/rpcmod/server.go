@@ -13,9 +13,26 @@ const rpcModuleId = "RPC"
 
 type PackageInfo = template.PackageInfo
 
-func NewModule(p *parser.Parser) template.Module {
-	deps := []template.Module{NewClientModule(p), NewUpgradedModule(p)}
+func NewModule(p *parser.Parser, services []string) template.Module {
+	deps := []template.Module{
+		NewClientModule(p),
+		NewUpgradedModule(p, services),
+	}
 	return template.NewStandartModule("rpcmod", GenerateServer, p, deps)
+}
+
+func NewUpgradedModule(p *parser.Parser, services []string) template.Module {
+	gen := func(p *parser.Parser) *template.Package {
+		return GenerateUpgraded(p, services)
+	}
+	return template.NewStandartModule("upgraded", gen, p, nil)
+}
+
+func GenerateUpgraded(p *parser.Parser, services []string) (pkg *template.Package) {
+	p.UpgradeApiImports(services)
+	files := p.ToFiles()
+	pkg = &template.Package{Name: "upgraded", Files: files}
+	return
 }
 
 func GenerateServer(p *parser.Parser) *template.Package {
@@ -39,6 +56,14 @@ func GenerateServer(p *parser.Parser) *template.Package {
 	}
 }
 
+func getRpcHandlerArgsList(request, response string) *Statement {
+	return List(
+		Id("ctx").Qual("context", "Context"),
+		Id("request").Op("*").Id(request),
+		Id("response").Op("*").Id(response),
+	)
+}
+
 func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 	handlerBody := func(g *Group) {
 		middlewares := template.MiddlewaresMap{"getEnv": Id(template.GetEnvHelper)}
@@ -50,7 +75,7 @@ func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 
 	template.MakeHandlerWrapper(
 		rpcModuleId, handlerBody, info, fn, file,
-		List(Id("ctx").Qual("context", "Context"), Id("request").Id(request), Id("response").Id(response)),
+		getRpcHandlerArgsList(request, response),
 		Err().Error(),
 	)
 }
@@ -78,7 +103,7 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 			handler, request, response := template.GetMethodTypes(fn, rpcModuleId)
 
 			f.Func().Params(Id("resource").Id(resourceName)).Id(handler).
-				Params(Id("ctx").Qual("context", "Context"), Id("request").Id(request), Id("response").Id(response)).
+				Params(getRpcHandlerArgsList(request, response)).
 				Params(Err().Error()).Block(
 				Return(
 					Id(handler).

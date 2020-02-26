@@ -10,17 +10,7 @@ func NewClientModule(p *parser.Parser) template.Module {
 }
 
 func GenerateClient(p *parser.Parser) (pkg *template.Package) {
-	pkg = &template.Package{}
+	pkg = &template.Package{Name: "client", Files: [][]byte{[]byte(`package client`)}}
 	return
 }
 
-func NewUpgradedModule(p *parser.Parser) template.Module {
-	return template.NewStandartModule("client", GenerateUpgraded, p, nil)
-}
-
-func GenerateUpgraded(p *parser.Parser) (pkg *template.Package) {
-	//p.UpgradeApiImports(imports)
-	//files := p.ToFiles()
-	pkg = &template.Package{}
-	return
-}
