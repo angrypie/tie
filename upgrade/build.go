@@ -20,7 +20,7 @@ func (upgrader *Upgrader) BuildTo(dist string) error {
 	alias := upgrader.Parser.Service.Alias
 	buildDir := "tie_modules"
 	if upgrader.Parser.GetPackageName() == "main" {
-		buildDir = "tie_upgraded"
+		buildDir = "tie_modules/tie_upgraded"
 	}
 
 	path := fmt.Sprintf("%s/%s", upgrader.Parser.Package.Path, buildDir)

@@ -1,7 +1,6 @@
 package rpcmod
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/angrypie/tie/parser"
@@ -15,11 +14,11 @@ const rpcModuleId = "RPC"
 type PackageInfo = template.PackageInfo
 
 func NewModule(p *parser.Parser) template.Module {
-	deps := []template.Module{NewClientModule(p)}
+	deps := []template.Module{NewClientModule(p), NewUpgradedModule(p)}
 	return template.NewStandartModule("rpcmod", GenerateServer, p, deps)
 }
 
-func GenerateServer(p *parser.Parser) string {
+func GenerateServer(p *parser.Parser) *template.Package {
 	info := template.NewPackageInfoFromParser(p)
 	f := NewFile(strings.ToLower(rpcModuleId))
 
@@ -34,7 +33,10 @@ func GenerateServer(p *parser.Parser) string {
 	f.Add(template.CreateReqRespTypes(rpcModuleId, info))
 	template.AddGetEnvHelper(f)
 
-	return fmt.Sprintf("%#v", f)
+	return &template.Package{
+		Name:  "rpcmod",
+		Files: [][]byte{[]byte(f.GoString())},
+	}
 }
 
 func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {

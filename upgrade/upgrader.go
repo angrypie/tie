@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
 	"path"
 	"strings"
 
@@ -94,13 +93,16 @@ func (upgrader *Upgrader) GenerateModules() (err error) {
 
 	module := template.NewMainModule(p, modules)
 
+	err = writeHelper(servicePath, "tie_modules/tie_upgraded", upgrader.Parser.ToFiles()...)
+	if err != nil {
+		return
+	}
 	template.TraverseModules(module, []string{""},
 		func(m template.Module, modulePath []string) (err error) {
 			fsPath := path.Join(servicePath, strings.Join(modulePath, "/"))
 			pkg := m.Generate()
 
-			log.Println(modulePath)
-			return writeHelper(fsPath, m.Name(), []byte(pkg.Code))
+			return writeHelper(fsPath, m.Name(), pkg.Files...)
 		})
 	return err
 }

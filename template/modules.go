@@ -9,8 +9,8 @@ type Module interface {
 }
 
 type Package struct {
-	Name string
-	Code string
+	Name  string
+	Files [][]byte
 }
 
 func TraverseModules(module Module, path []string, cb func(p Module, path []string) error) (err error) {
@@ -36,7 +36,7 @@ type StandartModule struct {
 	generate Generator
 }
 
-type Generator = func(*parser.Parser) string
+type Generator = func(*parser.Parser) *Package
 
 func NewStandartModule(name string, gen Generator, p *parser.Parser, deps []Module) *StandartModule {
 	return &StandartModule{
@@ -59,9 +59,5 @@ func (module StandartModule) Generate() (pkg *Package) {
 	if module.generate == nil {
 		return
 	}
-	pkg = &Package{
-		Name: module.Name(),
-		Code: module.generate(module.Parser),
-	}
-	return
+	return module.generate(module.Parser)
 }

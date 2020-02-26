@@ -8,7 +8,7 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
-func GetMainPackage(packagePath string, modules []string) string {
+func GetMainPackage(packagePath string, modules []string) *Package {
 	f := NewFile("main")
 
 	f.Func().Id("main").Params().BlockFunc(func(g *Group) {
@@ -19,7 +19,10 @@ func GetMainPackage(packagePath string, modules []string) string {
 		makeWaitGuard(g)
 	})
 
-	return fmt.Sprintf("%#v", f)
+	return &Package{
+		Name:  "main",
+		Files: [][]byte{[]byte(f.GoString())},
+	}
 }
 
 func NewMainModule(p *parser.Parser, deps []Module) Module {
@@ -28,7 +31,7 @@ func NewMainModule(p *parser.Parser, deps []Module) Module {
 		modules = append(modules, dep.Name())
 	}
 
-	generator := func(p *parser.Parser) string {
+	generator := func(p *parser.Parser) *Package {
 		return GetMainPackage(p.Service.Name, modules)
 	}
 	return NewStandartModule("tie_modules", generator, p, deps)

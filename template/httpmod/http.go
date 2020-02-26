@@ -20,7 +20,7 @@ func NewModule(p *parser.Parser) template.Module {
 	return template.NewStandartModule("httpmod", GenerateServer, p, nil)
 }
 
-func GenerateServer(p *parser.Parser) string {
+func GenerateServer(p *parser.Parser) *template.Package {
 	info := template.NewPackageInfoFromParser(p)
 	f := NewFile(strings.ToLower(httpModuleId))
 
@@ -34,7 +34,10 @@ func GenerateServer(p *parser.Parser) string {
 	f.Add(template.CreateReqRespTypes(httpModuleId, info))
 	makeHelpersHTTP(f)
 
-	return fmt.Sprintf("%#v", f)
+	return &template.Package{
+		Name:  "httpmod",
+		Files: [][]byte{[]byte(f.GoString())},
+	}
 }
 
 func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
