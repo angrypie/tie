@@ -40,8 +40,8 @@ func NewUser(identity *Identity, p *Provider, name string, getHeader func(string
 	}, nil
 }
 
-func (user *User) Hello() (greeting string, err error) {
-	return user.greeter.greet(user.Name), nil
+func (user *User) Hello(text string) (greeting string, err error) {
+	return user.greeter.greet(user.Name + ": " + text), nil
 }
 
 type Guest struct{}

@@ -8,9 +8,5 @@ import (
 
 func main() {
 	ret, err := ping.Ping()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Println(ret)
+	fmt.Println(ret, err)
 }

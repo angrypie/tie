@@ -1,6 +1,7 @@
 package rpcmod
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/angrypie/tie/parser"
@@ -9,6 +10,7 @@ import (
 )
 
 const rpcxServer = "github.com/smallnest/rpcx/server"
+const rpcxServerPlugin = "github.com/smallnest/rpcx/serverplugin"
 const rpcModuleId = "RPC"
 
 type PackageInfo = template.PackageInfo
@@ -80,6 +82,10 @@ func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 	)
 }
 
+func getResourceName(info *PackageInfo) string {
+	return "Resource__" + info.Service.Alias
+}
+
 func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 	main.Go().Id("startServer").Call()
 
@@ -88,7 +94,7 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 		receiversCreated := template.MakeReceiversForHandlers(info, g)
 
 		//RC replace http server init
-		resourceName := "Resource__" + info.Service.Alias
+		resourceName := getResourceName(info)
 		resourceInstance := "Instance__" + resourceName
 
 		f.Type().Id(resourceName).StructFunc(func(g *Group) {
@@ -121,10 +127,24 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 		}))
 		g.Id("server").Dot("RegisterName").Call(Lit(resourceName), Id(resourceInstance), Lit(""))
 
+		addMDNSRegistry(g, info)
+
 		g.Id("server").Dot("Serve").Call(Lit("tcp"), Id("address"))
 
 		//RC end
 	})
+}
+
+func addMDNSRegistry(g *Group, info *PackageInfo) {
+	g.Id("registerPlugin").Op(":=").Qual(rpcxServerPlugin, "NewMDNSRegisterPlugin").Call(
+		Lit("tcp@").Op("+").Id("address"),
+		Id("port"), Nil(), Qual("time", "Minute"),
+		Lit(fmt.Sprintf("local.%s", info.Service.Name)),
+	)
+	g.Err().Op("=").Id("registerPlugin").Dot("Start").Call()
+	g.If(Err().Op("!=").Nil()).Block(Panic(Err()))
+
+	g.Id("server").Dot("Plugins").Dot("Add").Call(Id("registerPlugin"))
 }
 
 func ifErrorReturnErrRPC(scope *Group, statement *Statement) {
