@@ -43,6 +43,14 @@ type PackageInfo struct {
 	IsInitService bool
 	IsStopService bool
 	Service       *types.Service
+	ServicePath   string
+}
+
+func (info PackageInfo) GetServicePath() string {
+	if info.ServicePath == "" {
+		return info.Service.Name
+	}
+	return info.ServicePath
 }
 
 func (info *PackageInfo) IsReceiverType(t string) bool {

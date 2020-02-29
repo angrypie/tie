@@ -130,7 +130,7 @@ func (p *Parser) ToFiles() (files [][]byte) {
 }
 
 //UpgradeApiImports returns false if import deleted but not added.
-func (p *Parser) UpgradeApiImports(imports []string) bool {
+func (p *Parser) UpgradeApiImports(imports []string, upgrade func(string) string) bool {
 	for _, file := range p.pkg.Files {
 		for _, path := range imports {
 			//get alias from path
@@ -139,7 +139,7 @@ func (p *Parser) UpgradeApiImports(imports []string) bool {
 			alias := arr[len(arr)-1]
 
 			if astutil.DeleteImport(p.fset, file, path) {
-				if !astutil.AddNamedImport(p.fset, file, alias, path+"/tie_client") {
+				if !astutil.AddNamedImport(p.fset, file, alias, upgrade(path)) {
 					return false
 				}
 			}

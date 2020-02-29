@@ -110,7 +110,7 @@ func isFuncType(t string) bool {
 
 func getConstructorDepsSignature(fn *parser.Function, info *PackageInfo) (code Code) {
 	return getConstructorDeps(fn, info, func(field parser.Field, g *Group) {
-		g.Id(GetReceiverVarName(field.Type)).Op("*").Qual(info.Service.Name, TrimPrefix(field.Type))
+		g.Id(GetReceiverVarName(field.Type)).Op("*").Qual(info.GetServicePath(), TrimPrefix(field.Type))
 	})
 }
 
@@ -206,7 +206,7 @@ func createTypeFromArgs(name string, args []parser.Field, info *PackageInfo) Cod
 			}
 			field := Id(strings.Title(name)).Op(arg.Prefix)
 			if arg.Package != "" {
-				field.Qual(info.Service.Name, arg.Type)
+				field.Qual(info.GetServicePath(), arg.Type)
 			} else {
 				field.Id(arg.Type)
 			}
@@ -233,7 +233,7 @@ func makeReceiverInitialization(recId string, scope *Group, constructor *parser.
 	constructorCall := makeCallWithMiddleware(constructor, info, MiddlewaresMap{"getEnv": Id(GetEnvHelper)})
 
 	scope.If(
-		List(Id(recId), Err()).Op("=").Qual(info.Service.Name, constructor.Name).CallFunc(constructorCall),
+		List(Id(recId), Err()).Op("=").Qual(info.GetServicePath(), constructor.Name).CallFunc(constructorCall),
 		Err().Op("!=").Nil(),
 	).Block(
 		//TODO return appropriate error here
@@ -254,7 +254,7 @@ func MakeInitService(info *PackageInfo, main *Group) {
 		return
 	}
 	main.If(
-		Err().Op(":=").Qual(info.Service.Name, "InitService").Call(),
+		Err().Op(":=").Qual(info.GetServicePath(), "InitService").Call(),
 		Err().Op("!=").Nil(),
 	).Block(
 		createErrLog("failed to init service"),
@@ -283,7 +283,7 @@ func MakeGracefulShutdown(info *PackageInfo, g *Group, f *File) {
 			g.Op("<-").Id("sigChan")
 			if info.IsStopService {
 				//TODO add time limit for StopService execution
-				g.Id("err").Op(":=").Qual(info.Service.Name, "StopService").Call()
+				g.Id("err").Op(":=").Qual(info.GetServicePath(), "StopService").Call()
 				g.If(Err().Op("!=").Nil()).Block(
 					Qual("log", "Println").Call(List(Lit("ERR failed to stop service"), Err())),
 				)
@@ -363,7 +363,7 @@ func MakeStartServerInit(info *PackageInfo, g *Group) {
 		g.Id("port").Op(":=").Lit(port)
 	}
 	g.Id("portStr").Op(":=").Qual("strconv", "Itoa").Call(Id("port"))
-	g.Id("address").Op(":=").Lit("127.0.0.1:").Op("+").Id("portStr")
+	g.Id("address").Op(":=").Lit("localhost:").Op("+").Id("portStr")
 }
 
 //MakeReceiversForHandlers cerates instances for each top level receiver.
@@ -376,7 +376,7 @@ func MakeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map
 		}
 		receiversCreated[receiverType] = true
 		receiverVarName := GetReceiverVarName(receiverType)
-		g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, TrimPrefix(receiverType)).Block()
+		g.Id(receiverVarName).Op(":=").Op("&").Qual(info.GetServicePath(), TrimPrefix(receiverType)).Block()
 		makeReceiverInitialization(receiverVarName, g, constructor, info)
 	}
 	MakeForEachReceiver(info, cb)
@@ -454,16 +454,16 @@ func MakeOriginalCall(
 		constructor := info.GetConstructor(receiverType)
 		receiverVarName := GetReceiverVarName(receiverType)
 		if constructor != nil && !HasTopLevelReceiver(constructor, info) {
-			g.Id(receiverVarName).Op(":=").Op("&").Qual(info.Service.Name, TrimPrefix(receiverType)).Block()
+			g.Id(receiverVarName).Op(":=").Op("&").Qual(info.GetServicePath(), TrimPrefix(receiverType)).Block()
 
 			constructorCall := makeCallWithMiddleware(constructor, info, middlewares)
 			errGuard(g, List(Id(receiverVarName), Err()).Op("=").
-				Qual(info.Service.Name, constructor.Name).CallFunc(constructorCall),
+				Qual(info.GetServicePath(), constructor.Name).CallFunc(constructorCall),
 			)
 		}
 		injectOriginalMethodCall(g, fn, Id(receiverVarName).Dot(fn.Name))
 	} else {
-		injectOriginalMethodCall(g, fn, Qual(info.Service.Name, fn.Name))
+		injectOriginalMethodCall(g, fn, Qual(info.GetServicePath(), fn.Name))
 	}
 
 	errGuard(g, Err().Op(":=").Id("response").Dot("Err"))
@@ -482,7 +482,7 @@ func MakeHandlerWrapper(
 		}
 		constructorFunc := info.GetConstructor(fn.Receiver.Type)
 		if constructorFunc == nil || HasTopLevelReceiver(constructorFunc, info) {
-			g.Id(receiverVarName).Op("*").Qual(info.Service.Name, TrimPrefix(fn.Receiver.Type))
+			g.Id(receiverVarName).Op("*").Qual(info.GetServicePath(), TrimPrefix(fn.Receiver.Type))
 		} else {
 			g.Add(getConstructorDepsSignature(constructorFunc, info))
 		}

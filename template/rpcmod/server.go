@@ -1,7 +1,6 @@
 package rpcmod
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/angrypie/tie/parser"
@@ -16,6 +15,10 @@ const rpcModuleId = "RPC"
 type PackageInfo = template.PackageInfo
 
 func NewModule(p *parser.Parser, services []string) template.Module {
+	if p.GetPackageName() == "main" {
+		return NewUpgradedModule(p, services)
+	}
+
 	deps := []template.Module{
 		NewClientModule(p),
 		NewUpgradedModule(p, services),
@@ -31,7 +34,9 @@ func NewUpgradedModule(p *parser.Parser, services []string) template.Module {
 }
 
 func GenerateUpgraded(p *parser.Parser, services []string) (pkg *template.Package) {
-	p.UpgradeApiImports(services)
+	p.UpgradeApiImports(services, func(i string) (n string) {
+		return i + "/tie_modules/rpcmod/client"
+	})
 	files := p.ToFiles()
 	pkg = &template.Package{Name: "upgraded", Files: files}
 	return
@@ -39,6 +44,7 @@ func GenerateUpgraded(p *parser.Parser, services []string) (pkg *template.Packag
 
 func GenerateServer(p *parser.Parser) *template.Package {
 	info := template.NewPackageInfoFromParser(p)
+	info.ServicePath = info.Service.Name + "/tie_modules/rpcmod/upgraded"
 	f := NewFile(strings.ToLower(rpcModuleId))
 
 	f.Func().Id("Main").Params().BlockFunc(func(main *Group) {
@@ -100,7 +106,7 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 		f.Type().Id(resourceName).StructFunc(func(g *Group) {
 			for receiverType := range receiversCreated {
 				receiverVarName := template.GetReceiverVarName(receiverType)
-				g.Id(receiverVarName).Op("*").Qual(info.Service.Name, template.TrimPrefix(receiverType))
+				g.Id(receiverVarName).Op("*").Qual(info.GetServicePath(), template.TrimPrefix(receiverType))
 			}
 		})
 
@@ -125,10 +131,10 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 				d[Id(receiverVarName)] = Id(receiverVarName)
 			}
 		}))
-		g.Id("server").Dot("RegisterName").Call(Lit(resourceName), Id(resourceInstance), Lit(""))
 
 		addMDNSRegistry(g, info)
 
+		g.Id("server").Dot("RegisterName").Call(Lit(resourceName), Id(resourceInstance), Lit(""))
 		g.Id("server").Dot("Serve").Call(Lit("tcp"), Id("address"))
 
 		//RC end
@@ -136,15 +142,16 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 }
 
 func addMDNSRegistry(g *Group, info *PackageInfo) {
-	g.Id("registerPlugin").Op(":=").Qual(rpcxServerPlugin, "NewMDNSRegisterPlugin").Call(
-		Lit("tcp@").Op("+").Id("address"),
-		Id("port"), Nil(), Qual("time", "Minute"),
-		Lit(fmt.Sprintf("local.%s", info.Service.Name)),
+	resourceName := getResourceName(info)
+
+	g.List(Id("zconfServer"), Id("err")).Op(":=").Qual(zeroconf, "Register").Call(
+		Lit("GoZeroconf"), Lit(resourceName),
+		Lit("local."), Id("port"),
+		Index().Id("string").Values(Lit("txtv=0"), Lit("lo=1"), Lit("la=2")), Id("nil"),
 	)
-	g.Err().Op("=").Id("registerPlugin").Dot("Start").Call()
 	g.If(Err().Op("!=").Nil()).Block(Panic(Err()))
 
-	g.Id("server").Dot("Plugins").Dot("Add").Call(Id("registerPlugin"))
+	g.Defer().Id("zconfServer").Dot("Shutdown").Call()
 }
 
 func ifErrorReturnErrRPC(scope *Group, statement *Statement) {
