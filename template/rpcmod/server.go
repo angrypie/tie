@@ -9,7 +9,6 @@ import (
 )
 
 const rpcxServer = "github.com/smallnest/rpcx/server"
-const rpcxServerPlugin = "github.com/smallnest/rpcx/serverplugin"
 const rpcModuleId = "RPC"
 
 type PackageInfo = template.PackageInfo

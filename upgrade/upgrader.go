@@ -82,14 +82,15 @@ func (upgrader *Upgrader) GenerateModules(services []string) (err error) {
 	if err != nil {
 		return
 	}
-	template.TraverseModules(module, []string{""},
+	err = template.TraverseModules(module, []string{""},
 		func(m template.Module, modulePath []string) (err error) {
 			fsPath := path.Join(servicePath, strings.Join(modulePath, "/"))
 			pkg := m.Generate()
 
 			return writeHelper(fsPath, m.Name(), pkg.Files...)
 		})
-	return err
+
+	return
 }
 
 //Clean removes files and directories created by Write method

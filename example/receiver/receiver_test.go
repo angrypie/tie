@@ -9,7 +9,7 @@ import (
 
 func TestReceiver(t *testing.T) {
 	user := User{}
-	greeting, err := user.Hello()
+	greeting, err := user.Hello("Paul")
 	require.NoError(t, err)
 	log.Println(greeting)
 
