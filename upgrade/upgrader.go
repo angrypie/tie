@@ -9,6 +9,7 @@ import (
 	"github.com/angrypie/tie/parser"
 	"github.com/angrypie/tie/template"
 	"github.com/angrypie/tie/template/httpmod"
+	"github.com/angrypie/tie/template/micromod"
 	"github.com/angrypie/tie/template/rpcmod"
 	"github.com/angrypie/tie/types"
 	"github.com/spf13/afero"
@@ -71,6 +72,8 @@ func (upgrader *Upgrader) GenerateModules(services []string) (err error) {
 			modules = append(modules, httpmod.NewModule(p))
 		case "rpc":
 			modules = append(modules, rpcmod.NewModule(p, services))
+		case "micro":
+			modules = append(modules, micromod.NewModule(p, services))
 		default:
 			modules = append(modules, rpcmod.NewModule(p, services))
 		}

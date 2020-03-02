@@ -1,9 +1,13 @@
 services:
   - name: 'github.com/angrypie/tie/example/ping-pong/ping'
     alias: 'ping'
+    type: 'rpc'
   - name: 'github.com/angrypie/tie/example/ping-pong/pong'
     alias: 'pong'
+    type: 'rpc'
   - name: 'github.com/angrypie/tie/example/ping-pong/health'
     alias: 'health'
+    type: 'rpc'
   - name: 'github.com/angrypie/tie/example/ping-pong/runping'
     alias: 'runping'
+    type: 'rpc'

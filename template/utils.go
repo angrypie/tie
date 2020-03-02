@@ -172,11 +172,11 @@ func CreateArgsList(
 				g.Add(transform(Id(prefix).Dot(arg.Type), arg))
 				return
 			}
-			name := strings.Title(arg.Name)
 			if prefix != "" {
+				name := strings.Title(arg.Name)
 				g.Add(transform(Id(prefix).Dot(name), arg))
 			} else {
-				g.Add(transform(Id(name), arg))
+				g.Add(transform(Id(arg.Name), arg))
 			}
 		}
 	}

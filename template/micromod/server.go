@@ -9,6 +9,7 @@ import (
 )
 
 const gomicro = "github.com/micro/go-micro/v2"
+const gomicroClient = "github.com/micro/go-micro/v2/client"
 const microModuleId = "GoMicro"
 
 type PackageInfo = template.PackageInfo
@@ -95,7 +96,6 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 	main.Go().Id("startServer").Call()
 
 	f.Func().Id("startServer").Params().BlockFunc(func(g *Group) {
-		template.MakeStartServerInit(info, g) //SIM
 		receiversCreated := template.MakeReceiversForHandlers(info, g)
 
 		//RC replace http server init
@@ -124,8 +124,9 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 		})
 
 		g.Id("service").Op(":=").Qual(gomicro, "NewService").Call(
-			Qual(gomicro, "Nmae").Call(Lit(resourceName)),
+			Qual(gomicro, "Name").Call(Lit(resourceName)),
 		)
+
 		g.Id("service").Dot("Init").Call()
 
 		g.Id(resourceInstance).Op(":=").Op("&").Id(resourceName).Values(DictFunc(func(d Dict) {
