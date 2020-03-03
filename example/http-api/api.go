@@ -5,6 +5,11 @@ import (
 	"fmt"
 )
 
+func InitService() (err error) {
+	fmt.Println("Server started")
+	return
+}
+
 type CreateHumanRequest struct {
 	Name   string
 	Age    int

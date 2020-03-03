@@ -40,6 +40,7 @@ func NewMainModule(p *parser.Parser, deps []Module) Module {
 type PackageInfo struct {
 	Functions     []*parser.Function
 	Constructors  map[string]*parser.Function
+	PackageName   string
 	IsInitService bool
 	IsStopService bool
 	Service       *types.Service
@@ -77,6 +78,7 @@ func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
 		Functions:    fns,
 		Service:      p.Service,
 		Constructors: make(map[string]*parser.Function),
+		PackageName:  p.GetPackageName(),
 	}
 
 	for _, fn := range functions {

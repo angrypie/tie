@@ -88,7 +88,7 @@ func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 }
 
 func getResourceName(info *PackageInfo) string {
-	return "Resource__" + info.Service.Alias
+	return "Resource__" + info.PackageName
 }
 
 func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
