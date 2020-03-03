@@ -51,7 +51,7 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 			g.List(Id("_"), ListFunc(template.CreateArgsListFunc(fn.Arguments, "request", "string,"))).Op("=").
 				List(Lit(0), ListFunc(template.CreateArgsList(fn.Arguments, func(arg *Statement, field parser.Field) *Statement {
 					return Id(firstNotEmptyStrHelper).Call(
-						Id("request").Dot(arg.GoString()),
+						Id("request").Dot(strings.Title(field.Name)),
 						Id("ctx").Dot("QueryParam").Call(Lit(strings.ToLower(arg.GoString()))),
 					)
 				}, "", "string,")))
