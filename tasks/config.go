@@ -51,6 +51,7 @@ func ReadDirAsConfig(dest string) error {
 	for _, file := range files {
 		if file.IsDir() {
 			pkgName := file.Name()
+			//TODO why libs ignored?
 			if strings.HasPrefix(pkgName, ".") || pkgName == "libs" {
 				continue
 			}
@@ -76,7 +77,7 @@ func ReadDirAsConfig(dest string) error {
 	}
 
 	if len(config.Services) == 0 {
-		config.Services = append(config.Services, types.Service{Name: basePath, Type: "httpOnly"})
+		config.Services = append(config.Services, types.Service{Name: basePath, Type: "http"})
 	}
 
 	return withConfigFile(&config)
