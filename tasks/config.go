@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go/build"
 	"log"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -105,10 +106,10 @@ func configFromYaml(config []byte, dest string) (err error) {
 	return withConfigFile(c)
 }
 
-func withConfigFile(c *types.ConfigFile) error {
+func withConfigFile(c *types.ConfigFile) (err error) {
 	var upgraders []*upgrade.Upgrader
 
-	//Create upgraders and replace imports
+	//Create upgraders
 	for _, service := range c.Services {
 		upgrader, err := upgradeWithServices(service, c.Services)
 		if err != nil {
@@ -123,6 +124,12 @@ func withConfigFile(c *types.ConfigFile) error {
 		upgraders = append(upgraders, upgrader)
 	}
 
+	cleanGoMod, err := initGoModules(c.Path)
+	if err != nil {
+		return
+	}
+	defer cleanGoMod()
+
 	//Build upgraders
 	for _, upgrader := range upgraders {
 		err := upgrader.BuildTo(c.Path)
@@ -131,7 +138,43 @@ func withConfigFile(c *types.ConfigFile) error {
 		}
 	}
 
-	return nil
+	return
+}
+
+//initGoModules initialize go module and return callback to clean changes after.
+func initGoModules(dest string) (clean func(), err error) {
+	clean = func() {}
+
+	fs := afero.NewOsFs()
+	goModulePath := fmt.Sprintf("%s/go.mod", dest)
+	goModExist, err := afero.Exists(fs, goModulePath)
+	if err != nil {
+		return
+	}
+
+	if goModExist {
+		clean = func() {
+			output, err := exec.Command("sh", "-c", "go mod tidy").CombinedOutput()
+			if err != nil {
+				log.Println(string(output))
+			}
+		}
+		return
+	}
+
+	clean = func() {
+		goSumPath := fmt.Sprintf("%s/go.sum", dest)
+		fs.Remove(goModulePath)
+		fs.Remove(goSumPath)
+		return
+	}
+
+	output, err := exec.Command("sh", "-c", "go mod init").CombinedOutput()
+	if err != nil {
+		log.Println(string(output))
+	}
+
+	return
 }
 
 //upgradeWithServices crate new upgrader for pkg and upgrade with services
