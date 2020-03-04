@@ -81,10 +81,6 @@ func (upgrader *Upgrader) GenerateModules(services []string) (err error) {
 
 	module := template.NewMainModule(p, modules)
 
-	err = writeHelper(servicePath, "tie_modules/tie_upgraded", upgrader.Parser.ToFiles()...)
-	if err != nil {
-		return
-	}
 	err = template.TraverseModules(module, []string{""},
 		func(m template.Module, modulePath []string) (err error) {
 			fsPath := path.Join(servicePath, strings.Join(modulePath, "/"))

@@ -15,7 +15,7 @@ func (upgrader *Upgrader) Build() error {
 }
 
 //BuildTo builds upgraded package binary to specified directory.
-//Build source will be tie_upgraded if target is main package or tie_server for any other cases.
+//For main packages build source dir is tie_modules/upgraded.
 func (upgrader *Upgrader) BuildTo(dist string) error {
 	alias := upgrader.Parser.Service.Alias
 	buildDir := "tie_modules"
