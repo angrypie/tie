@@ -3,7 +3,6 @@ package template
 import (
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/angrypie/tie/parser"
@@ -352,17 +351,26 @@ func MakeStartServerInit(info *PackageInfo, g *Group) {
 	g.Id("_").Op("=").Err()
 
 	portStr := info.Service.Port
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		portStr = ""
-	}
-	if portStr == "" {
-		g.List(Id("port"), Err()).Op(":=").Qual(rndport, "GetPort").Call()
-		g.If(Err().Op("!=").Nil()).Block(Panic(Err()))
-	} else {
-		g.Id("port").Op(":=").Lit(port)
-	}
-	g.Id("portStr").Op(":=").Qual("strconv", "Itoa").Call(Id("port"))
+
+	//Try to use port value from environment
+	g.Var().Id("portStr").String()
+	g.If(
+		Id("p").Op(":=").Qual("os", "Getenv").Call(Lit("PORT")),
+		Id("p").Op("!=").Lit(""),
+	).Block(
+		Id("portStr").Op("=").Id("p"),
+	).Else().BlockFunc(func(g *Group) {
+		//Use random port if configuration and environment is empty
+		if portStr == "" {
+			g.List(Id("portStr"), Err()).Op("=").Qual(rndport, "GetAddress").Call(Lit("%d"))
+			g.If(Err().Op("!=").Nil()).Block(Panic(Err()))
+		} else {
+			g.Id("portStr").Op("=").Lit(portStr)
+		}
+	})
+	g.List(Id("port"), Err()).Op(":=").Qual("strconv", "Atoi").Call(Id("portStr"))
+	g.Id("_").Op("=").Id("port")
+	g.If(Err().Op("!=").Nil()).Block(Panic(Err()))
 	g.Id("address").Op(":=").Lit("localhost:").Op("+").Id("portStr")
 }
 
