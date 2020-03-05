@@ -75,7 +75,7 @@ func (upgrader *Upgrader) GenerateModules(services []string) (err error) {
 		case "micro":
 			modules = append(modules, micromod.NewModule(p, services))
 		default:
-			modules = append(modules, rpcmod.NewModule(p, services))
+			modules = append(modules, micromod.NewModule(p, services))
 		}
 	}
 
