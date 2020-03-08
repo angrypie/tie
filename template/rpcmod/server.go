@@ -95,10 +95,9 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 	main.Go().Id("startServer").Call()
 
 	f.Func().Id("startServer").Params().BlockFunc(func(g *Group) {
-		template.MakeStartServerInit(info, g) //SIM
+		template.MakeStartServerInit(info, g)
 		receiversCreated := template.MakeReceiversForHandlers(info, g)
 
-		//RC replace http server init
 		resourceName := getResourceName(info)
 		resourceInstance := "Instance__" + resourceName
 
@@ -136,7 +135,6 @@ func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 		g.Id("server").Dot("RegisterName").Call(Lit(resourceName), Id(resourceInstance), Lit(""))
 		g.Id("server").Dot("Serve").Call(Lit("tcp"), Id("address"))
 
-		//RC end
 	})
 }
 

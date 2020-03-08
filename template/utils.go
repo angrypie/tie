@@ -376,7 +376,7 @@ func MakeStartServerInit(info *PackageInfo, g *Group) {
 
 //MakeReceiversForHandlers cerates instances for each top level receiver.
 func MakeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map[string]bool) {
-	receiversCreated = make(map[string]bool) //RC
+	receiversCreated = make(map[string]bool)
 	cb := func(receiverType string, constructor *parser.Function) {
 		//Skip not top level receivers.
 		if constructor != nil && !HasTopLevelReceiver(constructor, info) {
