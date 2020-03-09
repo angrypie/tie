@@ -224,28 +224,23 @@ func injectOriginalMethodCall(g *Group, fn *parser.Function, method Code) {
 		Op("=").Add(method).Call(ListFunc(CreateArgsListFunc(fn.Arguments, "request")))
 }
 
-func makeReceiverInitialization(recId string, scope *Group, constructor *parser.Function, info *PackageInfo) {
+func makeReceiverInitialization(receiverType string, g *Group, constructor *parser.Function, info *PackageInfo) {
+	recId := GetReceiverVarName(receiverType)
 	if constructor == nil {
+		g.Id(recId).Op(":=").Op("&").Qual(info.GetServicePath(), TrimPrefix(receiverType)).Block()
 		return
 	}
 
 	constructorCall := makeCallWithMiddleware(constructor, info, MiddlewaresMap{"getEnv": Id(GetEnvHelper)})
-
-	scope.If(
-		List(Id(recId), Err()).Op("=").Qual(info.GetServicePath(), constructor.Name).CallFunc(constructorCall),
-		Err().Op("!=").Nil(),
-	).Block(
-		//TODO return appropriate error here
-		Panic(Err()),
-	)
+	g.List(Id(recId), Err()).Op(":=").Qual(info.GetServicePath(), constructor.Name).CallFunc(constructorCall)
+	AddIfErrorGuard(g, nil, nil)
 
 	for _, fn := range info.Functions {
 		if fn.Name == "Stop" && info.GetConstructor(fn.Receiver.Type) == constructor {
-			scope.Id("stoppableServices").Op("=").Append(Id("stoppableServices"), Id(recId))
+			g.Id("stoppableServices").Op("=").Append(Id("stoppableServices"), Id(recId))
 			return
 		}
 	}
-
 }
 
 func MakeInitService(info *PackageInfo, main *Group) {
@@ -346,10 +341,6 @@ func makeCallWithMiddleware(fn *parser.Function, info *PackageInfo, middlewares 
 const rndport = "github.com/angrypie/rndport"
 
 func MakeStartServerInit(info *PackageInfo, g *Group) {
-	//Declare err and get rid of ''unused' error.
-	g.Var().Err().Error()
-	g.Id("_").Op("=").Err()
-
 	portStr := info.Service.Port
 
 	//Try to use port value from environment
@@ -363,14 +354,14 @@ func MakeStartServerInit(info *PackageInfo, g *Group) {
 		//Use random port if configuration and environment is empty
 		if portStr == "" {
 			g.List(Id("portStr"), Err()).Op("=").Qual(rndport, "GetAddress").Call(Lit("%d"))
-			g.If(Err().Op("!=").Nil()).Block(Panic(Err()))
+			AddIfErrorGuard(g, nil, nil)
 		} else {
 			g.Id("portStr").Op("=").Lit(portStr)
 		}
 	})
 	g.List(Id("port"), Err()).Op(":=").Qual("strconv", "Atoi").Call(Id("portStr"))
 	g.Id("_").Op("=").Id("port")
-	g.If(Err().Op("!=").Nil()).Block(Panic(Err()))
+	AddIfErrorGuard(g, nil, nil)
 	g.Id("address").Op(":=").Lit("localhost:").Op("+").Id("portStr")
 }
 
@@ -383,9 +374,7 @@ func MakeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map
 			return
 		}
 		receiversCreated[receiverType] = true
-		receiverVarName := GetReceiverVarName(receiverType)
-		g.Id(receiverVarName).Op(":=").Op("&").Qual(info.GetServicePath(), TrimPrefix(receiverType)).Block()
-		makeReceiverInitialization(receiverVarName, g, constructor, info)
+		makeReceiverInitialization(receiverType, g, constructor, info)
 	}
 	MakeForEachReceiver(info, cb)
 	return receiversCreated

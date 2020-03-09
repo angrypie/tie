@@ -81,7 +81,6 @@ func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 
 func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
 	template.MakeStartRPCServer(info, rpcModuleId, main, f, func(g *Group, resource, instance string) {
-
 		template.MakeStartServerInit(info, g)
 
 		g.Id("server").Op(":=").Qual(rpcxServer, "NewServer").Call()
@@ -101,7 +100,6 @@ func addMDNSRegistry(g *Group, info *PackageInfo) {
 		Lit("local."), Id("port"),
 		Index().Id("string").Values(Lit("txtv=0"), Lit("lo=1"), Lit("la=2")), Id("nil"),
 	)
-	g.If(Err().Op("!=").Nil()).Block(Panic(Err()))
 	template.AddIfErrorGuard(g, nil, nil)
 
 	g.Defer().Id("zconfServer").Dot("Shutdown").Call()

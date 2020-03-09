@@ -10,9 +10,11 @@ func MakeStartRPCServer(
 	info *PackageInfo, moduleId string, main *Group, f *File,
 	cb func(g *Group, resource, instance string),
 ) {
-	main.Go().Id("startServer").Call()
+	//TODO handle thi error
+	main.Err().Op(":=").Id("startServer").Call()
+	main.If(Err().Op("!=").Nil()).Block(Panic(Err()))
 
-	f.Func().Id("startServer").Params().BlockFunc(func(g *Group) {
+	f.Func().Id("startServer").Params().Params(Err().Error()).BlockFunc(func(g *Group) {
 		receiversCreated := MakeReceiversForHandlers(info, g)
 
 		resourceName := GetResourceName(info)
@@ -46,6 +48,7 @@ func MakeStartRPCServer(
 			}
 		}))
 		cb(g, resourceName, resourceInstance)
+		g.Return()
 	})
 }
 

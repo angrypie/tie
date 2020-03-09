@@ -79,11 +79,12 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 }
 
 func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
-	main.Go().Id("startServer").Call()
+	main.Err().Op(":=").Id("startServer").Call()
+	main.If(Err().Op("!=").Nil()).Block(Panic(Err()))
 
-	f.Func().Id("startServer").Params().BlockFunc(func(g *Group) {
-		template.MakeStartServerInit(info, g)      //SIM
-		template.MakeReceiversForHandlers(info, g) //SIM
+	f.Func().Id("startServer").Params().Params(Err().Error()).BlockFunc(func(g *Group) {
+		template.MakeStartServerInit(info, g)
+		template.MakeReceiversForHandlers(info, g)
 
 		g.Id("server").Op(":=").Qual(echoPath, "New").Call()
 
@@ -109,7 +110,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 		//Enable authentication if auth field is specified in config
 		addAuthenticationHTTP(info, g)
 		g.Id("server").Dot("Start").Call(Id("address"))
-
+		g.Return()
 	})
 }
 
