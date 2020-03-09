@@ -39,7 +39,7 @@ func makeClientAPI(info *PackageInfo, f *File) {
 	template.ForEachFunction(info, true, func(fn *parser.Function) {
 		_, request, response := template.GetMethodTypes(fn, clientNamesSuffix)
 		rpcMethodName, _, _ := template.GetMethodTypes(fn, microModuleId)
-		resourceName := getResourceName(info)
+		resourceName := template.GetResourceName(info)
 
 		args := fn.Arguments
 		body := func(g *Group) {

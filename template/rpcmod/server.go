@@ -63,14 +63,6 @@ func GenerateServer(p *parser.Parser) *template.Package {
 	}
 }
 
-func getRpcHandlerArgsList(request, response string) *Statement {
-	return List(
-		Id("ctx").Qual("context", "Context"),
-		Id("request").Op("*").Id(request),
-		Id("response").Op("*").Id(response),
-	)
-}
-
 func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 	handlerBody := func(g *Group) {
 		middlewares := template.MiddlewaresMap{"getEnv": Id(template.GetEnvHelper)}
@@ -82,64 +74,27 @@ func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 
 	template.MakeHandlerWrapper(
 		rpcModuleId, handlerBody, info, fn, file,
-		getRpcHandlerArgsList(request, response),
+		template.GetRpcHandlerArgsList(request, response),
 		Err().Error(),
 	)
 }
 
-func getResourceName(info *PackageInfo) string {
-	return "Resource__" + info.PackageName
-}
-
 func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
-	main.Go().Id("startServer").Call()
+	template.MakeStartRPCServer(info, rpcModuleId, main, f, func(g *Group, resource, instance string) {
 
-	f.Func().Id("startServer").Params().BlockFunc(func(g *Group) {
 		template.MakeStartServerInit(info, g)
-		receiversCreated := template.MakeReceiversForHandlers(info, g)
-
-		resourceName := getResourceName(info)
-		resourceInstance := "Instance__" + resourceName
-
-		f.Type().Id(resourceName).StructFunc(func(g *Group) {
-			for receiverType := range receiversCreated {
-				receiverVarName := template.GetReceiverVarName(receiverType)
-				g.Id(receiverVarName).Op("*").Qual(info.GetServicePath(), template.TrimPrefix(receiverType))
-			}
-		})
-
-		//.2 Add handler for each function.
-		template.ForEachFunction(info, true, func(fn *parser.Function) {
-			handler, request, response := template.GetMethodTypes(fn, rpcModuleId)
-
-			f.Func().Params(Id("resource").Id(resourceName)).Id(handler).
-				Params(getRpcHandlerArgsList(request, response)).
-				Params(Err().Error()).Block(
-				Return(
-					Id(handler).
-						CallFunc(template.MakeHandlerWrapperCall(fn, info, func(depName string) Code {
-							return Id("resource").Dot(depName)
-						})).Call(Id("ctx"), Id("request"), Id("response"))))
-		})
 
 		g.Id("server").Op(":=").Qual(rpcxServer, "NewServer").Call()
-		g.Id(resourceInstance).Op(":=").Op("&").Id(resourceName).Values(DictFunc(func(d Dict) {
-			for receiverType := range receiversCreated {
-				receiverVarName := template.GetReceiverVarName(receiverType)
-				d[Id(receiverVarName)] = Id(receiverVarName)
-			}
-		}))
-
 		addMDNSRegistry(g, info)
 
-		g.Id("server").Dot("RegisterName").Call(Lit(resourceName), Id(resourceInstance), Lit(""))
+		g.Id("server").Dot("RegisterName").Call(Lit(resource), Id(instance), Lit(""))
 		g.Id("server").Dot("Serve").Call(Lit("tcp"), Id("address"))
-
 	})
+
 }
 
 func addMDNSRegistry(g *Group, info *PackageInfo) {
-	resourceName := getResourceName(info)
+	resourceName := template.GetResourceName(info)
 
 	g.List(Id("zconfServer"), Id("err")).Op(":=").Qual(zeroconf, "Register").Call(
 		Lit("GoZeroconf"), Lit(resourceName),
@@ -147,6 +102,7 @@ func addMDNSRegistry(g *Group, info *PackageInfo) {
 		Index().Id("string").Values(Lit("txtv=0"), Lit("lo=1"), Lit("la=2")), Id("nil"),
 	)
 	g.If(Err().Op("!=").Nil()).Block(Panic(Err()))
+	template.AddIfErrorGuard(g, nil, nil)
 
 	g.Defer().Id("zconfServer").Dot("Shutdown").Call()
 }

@@ -64,14 +64,6 @@ func GenerateServer(p *parser.Parser) *template.Package {
 	}
 }
 
-func getRpcHandlerArgsList(request, response string) *Statement {
-	return List(
-		Id("ctx").Qual("context", "Context"),
-		Id("request").Op("*").Id(request),
-		Id("response").Op("*").Id(response),
-	)
-}
-
 func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 	handlerBody := func(g *Group) {
 		middlewares := template.MiddlewaresMap{"getEnv": Id(template.GetEnvHelper)}
@@ -83,62 +75,22 @@ func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 
 	template.MakeHandlerWrapper(
 		microModuleId, handlerBody, info, fn, file,
-		getRpcHandlerArgsList(request, response),
+		template.GetRpcHandlerArgsList(request, response),
 		Err().Error(),
 	)
 }
 
-func getResourceName(info *PackageInfo) string {
-	return "Resource__" + info.PackageName
-}
-
 func makeStartRPCServer(info *PackageInfo, main *Group, f *File) {
-	main.Go().Id("startServer").Call()
-
-	f.Func().Id("startServer").Params().BlockFunc(func(g *Group) {
-		receiversCreated := template.MakeReceiversForHandlers(info, g)
-
-		resourceName := getResourceName(info)
-		resourceInstance := "Instance__" + resourceName
-
-		f.Type().Id(resourceName).StructFunc(func(g *Group) {
-			for receiverType := range receiversCreated {
-				receiverVarName := template.GetReceiverVarName(receiverType)
-				g.Id(receiverVarName).Op("*").Qual(info.GetServicePath(), template.TrimPrefix(receiverType))
-			}
-		})
-
-		//.2 Add handler for each function.
-		template.ForEachFunction(info, true, func(fn *parser.Function) {
-			handler, request, response := template.GetMethodTypes(fn, microModuleId)
-
-			f.Func().Params(Id("resource").Id(resourceName)).Id(handler).
-				Params(getRpcHandlerArgsList(request, response)).
-				Params(Err().Error()).Block(
-				Return(
-					Id(handler).
-						CallFunc(template.MakeHandlerWrapperCall(fn, info, func(depName string) Code {
-							return Id("resource").Dot(depName)
-						})).Call(Id("ctx"), Id("request"), Id("response"))))
-		})
-
+	template.MakeStartRPCServer(info, microModuleId, main, f, func(g *Group, resource, instance string) {
 		g.Id("service").Op(":=").Qual(gomicro, "NewService").Call(
-			Qual(gomicro, "Name").Call(Lit(resourceName)),
+			Qual(gomicro, "Name").Call(Lit(resource)),
 		)
-
 		g.Id("service").Dot("Init").Call()
 
-		g.Id(resourceInstance).Op(":=").Op("&").Id(resourceName).Values(DictFunc(func(d Dict) {
-			for receiverType := range receiversCreated {
-				receiverVarName := template.GetReceiverVarName(receiverType)
-				d[Id(receiverVarName)] = Id(receiverVarName)
-			}
-		}))
-
-		g.Qual(gomicro, "RegisterHandler").Call(Id("service").Dot("Server").Call(), Id(resourceInstance))
+		g.Qual(gomicro, "RegisterHandler").Call(Id("service").Dot("Server").Call(), Id(instance))
 		g.Id("service").Dot("Run").Call()
-
 	})
+
 }
 
 func ifErrorReturnErrRPC(scope *Group, statement *Statement) {

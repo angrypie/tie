@@ -30,7 +30,6 @@ func GenerateClient(p *parser.Parser) (pkg *template.Package) {
 }
 
 func makeClientAPI(info *PackageInfo, f *File) {
-
 	cb := func(receiverType string, constructor *parser.Function) {
 		f.Type().Id(receiverType).Struct()
 	}
@@ -85,7 +84,7 @@ func addGetRpcClient(info *PackageInfo, f *File) {
 	f.Func().Id(getRpcClientFnName).Params().
 		Params(Id("xclient").Qual(rpcxClient, "XClient"), Err().Error()).
 		BlockFunc(func(g *Group) {
-			resourceName := getResourceName(info)
+			resourceName := template.GetResourceName(info)
 			g.List(Id("port"), Id("err")).Op(":=").Id("getLocalService").Call(Lit(resourceName))
 			template.AddIfErrorGuard(g, List(), List())
 			//TODO p2p discovery
