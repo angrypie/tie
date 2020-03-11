@@ -127,16 +127,34 @@ func (p *Parser) ToFiles() (files [][]byte) {
 
 //UpgradeApiImports returns false if import deleted but not added.
 func (p *Parser) UpgradeApiImports(imports []string, upgrade func(string) string) bool {
-	for _, file := range p.pkg.Files {
-		for _, path := range imports {
-			//get alias from path
-			//TODO support named ipmports
-			arr := strings.Split(path, "/")
-			alias := arr[len(arr)-1]
+	allImports := make(map[string]struct{})
 
-			if astutil.DeleteImport(p.fset, file, path) {
-				if !astutil.AddNamedImport(p.fset, file, alias, upgrade(path)) {
-					return false
+	for _, path := range imports {
+		allImports[path] = struct{}{}
+	}
+
+	for _, file := range p.pkg.Files {
+		for _, par := range astutil.Imports(p.fset, file) {
+			for _, i := range par {
+				path := strings.Trim(i.Path.Value, `"`)
+				if _, ok := allImports[path]; !ok {
+					continue
+				}
+
+				var alias, name string
+				if i.Name == nil {
+					//get import name  from path
+					arr := strings.Split(path, "/")
+					alias = arr[len(arr)-1]
+				} else {
+					name = i.Name.Name
+					alias = name
+				}
+
+				if astutil.DeleteNamedImport(p.fset, file, name, path) {
+					if !astutil.AddNamedImport(p.fset, file, alias, upgrade(path)) {
+						return false
+					}
 				}
 			}
 		}
