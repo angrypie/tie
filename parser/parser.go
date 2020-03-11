@@ -94,27 +94,23 @@ func (p *Parser) GetFunctions() (functions []*Function) {
 
 //GetTypes returns exported types from package
 func (p *Parser) GetTypes() (types []*Type, err error) {
-	inspectNodesInPkg(p.pkg, func(node ast.Node) bool {
+	inspectNodesInPkg(p.pkg, func(node ast.Node) (goInDepth bool) {
 		switch n := node.(type) {
 		case *ast.GenDecl:
 			if n.Tok != token.TYPE {
-				break
+				return
 			}
-			//TODO GetTypes: figure out why is there many specs
-			ts := n.Specs[0].(*ast.TypeSpec)
-
-			if st, ok := ts.Type.(*ast.StructType); ok {
-				if t, ok := p.processType(st, ts); ok {
-					types = append(types, t)
+			for _, spec := range n.Specs {
+				ts := spec.(*ast.TypeSpec)
+				//TODO: handle other type specs
+				if st, ok := ts.Type.(*ast.StructType); ok {
+					if t, ok := p.processType(st, ts); ok {
+						types = append(types, t)
+					}
 				}
 			}
-
-			//TODO GetTypes: handle ast.SelectorExpr
-			if st, ok := ts.Type.(*ast.SelectorExpr); ok {
-				log.Println("TODO GetTypes: ", st.Sel.String())
-			}
 		}
-		return true
+		return
 	})
 	return types, nil
 }
