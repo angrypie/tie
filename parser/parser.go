@@ -92,7 +92,7 @@ func (p *Parser) GetFunctions() (functions []*Function) {
 	return
 }
 
-//GetTypes returns exported types from package
+//GetTypes returns exported sturct types from package
 func (p *Parser) GetTypes() (types []*Type, err error) {
 	inspectNodesInPkg(p.pkg, func(node ast.Node) (goInDepth bool) {
 		switch n := node.(type) {
@@ -102,7 +102,6 @@ func (p *Parser) GetTypes() (types []*Type, err error) {
 			}
 			for _, spec := range n.Specs {
 				ts := spec.(*ast.TypeSpec)
-				//TODO: handle other type specs
 				if st, ok := ts.Type.(*ast.StructType); ok {
 					if t, ok := p.processType(st, ts); ok {
 						types = append(types, t)
