@@ -141,6 +141,9 @@ func CreateArgsListFunc(args []parser.Field, params ...string) func(*Group) {
 
 func CreateSignatureFromArgs(args []parser.Field, params ...string) func(*Group) {
 	return CreateArgsList(args, func(arg *Statement, field parser.Field) *Statement {
+		if field.Package != "" {
+			return Id(field.Name).Qual(field.Package, field.Type)
+		}
 		return Id(field.Name).Id(field.Type)
 	}, params...)
 }

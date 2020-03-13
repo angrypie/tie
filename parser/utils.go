@@ -3,6 +3,7 @@ package parser
 import (
 	"go/ast"
 	"go/types"
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -43,14 +44,16 @@ func (p *Parser) extractArgsList(list *ast.FieldList) (args []Field) {
 
 		//Detect local type with prefixes
 		if ok, modifier := isExportedType(currentType); ok {
-			slice := strings.SplitAfter(currentType, modifier)
-
-			typePrefix = strings.Join(slice[0:len(slice)-1], "")
-			currentType = slice[len(slice)-1]
-			currentPackage = p.Service.Alias
+			if modifier != "" {
+				slice := strings.SplitAfter(currentType, modifier)
+				typePrefix = strings.Join(slice[0:len(slice)-1], "")
+				currentType = slice[len(slice)-1]
+			}
+			currentPackage = p.Service.Name
 		}
 
 		if len(param.Names) != 0 {
+			log.Println(param.Names)
 			for _, name := range param.Names {
 				args = append(args, Field{
 					Name:    name.Name,
@@ -84,8 +87,9 @@ func isExportedType(t string) (bool, string) {
 	re := regexp.MustCompile(`[^\[\]\*].*$`)
 
 	split := re.Split(t, -1)
-	if ast.IsExported(strings.Trim(t, split[0])) {
-		return true, split[0]
+	prefix := split[0]
+	if ast.IsExported(strings.Trim(t, prefix)) {
+		return true, prefix
 	}
-	return false, ""
+	return false, prefix
 }
