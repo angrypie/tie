@@ -139,12 +139,9 @@ func CreateArgsListFunc(args []parser.Field, params ...string) func(*Group) {
 	}, params...)
 }
 
-func CreateSignatureFromArgs(args []parser.Field, params ...string) func(*Group) {
+func CreateSignatureFromArgs(args []parser.Field, info *PackageInfo, params ...string) func(*Group) {
 	return CreateArgsList(args, func(arg *Statement, field parser.Field) *Statement {
-		if field.Package != "" {
-			return Id(field.Name).Qual(field.Package, field.Type)
-		}
-		return Id(field.Name).Id(field.Type)
+		return Id(field.Name).Add(createTypeFromArg(field, info))
 	}, params...)
 }
 
@@ -191,27 +188,22 @@ func CreateReqRespTypes(postfix string, info *PackageInfo) Code {
 		arguments := CreateCombinedHandlerArgs(fn, info)
 
 		_, reqName, respName := GetMethodTypes(fn, postfix)
-		code.Add(createTypeFromArgs(reqName, arguments, info))
+		code.Add(createTypeDeclFromArgs(reqName, arguments, info))
 		code.Line()
-		code.Add(createTypeFromArgs(respName, fn.Results, info))
+		code.Add(createTypeDeclFromArgs(respName, fn.Results, info))
 		code.Line()
 	})
 	return code
 }
 
-func createTypeFromArgs(name string, args []parser.Field, info *PackageInfo) Code {
+func createTypeDeclFromArgs(name string, args []parser.Field, info *PackageInfo) Code {
 	return Type().Id(name).StructFunc(func(g *Group) {
 		for _, arg := range args {
 			name := arg.Name
 			if isArgNameAreDTO(name) {
 				name = ""
 			}
-			field := Id(strings.Title(name)).Op(arg.Prefix)
-			if arg.Package != "" {
-				field.Qual(info.GetServicePath(), arg.Type)
-			} else {
-				field.Id(arg.Type)
-			}
+			field := Id(strings.Title(name)).Add(createTypeFromArg(arg, info))
 			jsonTag := strings.ToLower(name)
 			if arg.Type == "error" {
 				jsonTag = "-"
@@ -220,6 +212,21 @@ func createTypeFromArgs(name string, args []parser.Field, info *PackageInfo) Cod
 			g.Add(field)
 		}
 	})
+}
+
+func createTypeFromArg(field parser.Field, info *PackageInfo) Code {
+	t := Op(field.Prefix)
+	if pkg := field.Package; pkg != "" {
+		//Use serviece apth
+		if pkg == info.Service.Name {
+			return t.Qual(info.ServicePath, field.Type)
+		} else {
+			return t.Qual(pkg, field.Type)
+		}
+	} else {
+		t.Id(field.Type)
+	}
+	return t
 }
 
 func injectOriginalMethodCall(g *Group, fn *parser.Function, method Code) {

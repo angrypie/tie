@@ -17,6 +17,8 @@ func NewClientModule(p *parser.Parser) template.Module {
 
 func GenerateClient(p *parser.Parser) (pkg *template.Package) {
 	info := template.NewPackageInfoFromParser(p)
+	//TODO all modules noods to create upgraded subpackage, to make ServicePath reusable
+	info.ServicePath = info.Service.Name + "/tie_modules/micromod/upgraded"
 	f := NewFile(strings.ToLower(microModuleId))
 
 	f.Add(template.CreateReqRespTypes(clientNamesSuffix, info))
@@ -74,7 +76,7 @@ func makeClientAPI(info *PackageInfo, f *File) {
 				return
 			}
 		}).Id(fn.Name).
-			ParamsFunc(template.CreateSignatureFromArgs(args)).
-			ParamsFunc(template.CreateSignatureFromArgs(fn.Results)).BlockFunc(body)
+			ParamsFunc(template.CreateSignatureFromArgs(args, info)).
+			ParamsFunc(template.CreateSignatureFromArgs(fn.Results, info)).BlockFunc(body)
 	})
 }

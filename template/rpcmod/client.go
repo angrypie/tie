@@ -68,8 +68,8 @@ func makeClientAPI(info *PackageInfo, f *File) {
 				return
 			}
 		}).Id(fn.Name).
-			ParamsFunc(template.CreateSignatureFromArgs(args)).
-			ParamsFunc(template.CreateSignatureFromArgs(fn.Results)).BlockFunc(body)
+			ParamsFunc(template.CreateSignatureFromArgs(args, info)).
+			ParamsFunc(template.CreateSignatureFromArgs(fn.Results, info)).BlockFunc(body)
 	})
 }
 

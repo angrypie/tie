@@ -3,7 +3,6 @@ package parser
 import (
 	"go/ast"
 	"go/types"
-	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -43,15 +42,10 @@ func (p *Parser) extractArgsList(list *ast.FieldList) (args []Field) {
 		var currentPackage string
 		var typePrefix string
 
-		//Detect local type with prefixes
-		if ok, modifier := isExportedType(currentType); ok {
-			if modifier != "" {
-				slice := strings.SplitAfter(currentType, modifier)
-				typePrefix = strings.Join(slice[0:len(slice)-1], "")
-				currentType = slice[len(slice)-1]
-			}
-
-			currentPackage = p.Service.Name
+		if modifier := getTypePrefix(currentType); modifier != "" {
+			slice := strings.SplitAfter(currentType, modifier)
+			typePrefix = strings.Join(slice[0:len(slice)-1], "")
+			currentType = slice[len(slice)-1]
 		}
 
 		if res := strings.Split(currentType, "."); len(res) > 1 {
@@ -62,9 +56,12 @@ func (p *Parser) extractArgsList(list *ast.FieldList) (args []Field) {
 					break
 				}
 			}
+		} else {
+			if isExportedType(currentType) {
+				currentPackage = p.Service.Name
+			}
 		}
 
-		log.Println("$$$", currentType, currentPackage)
 		if len(param.Names) != 0 {
 			for _, name := range param.Names {
 				args = append(args, Field{
@@ -95,13 +92,12 @@ func (p *Parser) processType(st *ast.StructType, ts *ast.TypeSpec) (*Type, bool)
 	return t, true
 }
 
-func isExportedType(t string) (bool, string) {
-	re := regexp.MustCompile(`[^\[\]\*].*$`)
+func isExportedType(t string) bool {
+	return ast.IsExported(t)
+}
 
+func getTypePrefix(t string) (prefix string) {
+	re := regexp.MustCompile(`[^\[\]\*].*$`)
 	split := re.Split(t, -1)
-	prefix := split[0]
-	if ast.IsExported(strings.Trim(t, prefix)) {
-		return true, prefix
-	}
-	return false, prefix
+	return split[0]
 }
