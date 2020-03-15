@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"go/ast"
 	"go/build"
+	"go/importer"
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"go/types"
 	"log"
 	"os"
 	"strings"
@@ -29,6 +31,7 @@ type Parser struct {
 	pkg     *ast.Package
 	Package *Package
 	Service *tieTypes.Service
+	Pkg     *types.Package
 }
 
 //NewParser creates new parser.
@@ -42,7 +45,7 @@ func NewParser(service *tieTypes.Service) *Parser {
 
 //Parse initializes parser by parsing package. Should be called before any other method.
 func (p *Parser) Parse(pkg string) error {
-	log.Println(pkg)
+	log.Println(">", pkg)
 	p.Package = NewPackage(pkg)
 	if p.Service.Alias == "" {
 		p.Service.Alias = p.Package.Alias
@@ -68,6 +71,15 @@ func (p *Parser) Parse(pkg string) error {
 		p.pkg = pkg
 		break
 	}
+
+	var files []*ast.File
+	for _, file := range p.pkg.Files {
+		files = append(files, file)
+	}
+
+	conf := types.Config{Importer: importer.Default()}
+
+	p.Pkg, _ = conf.Check(p.Package.Path, p.fset, files, nil)
 
 	return nil
 }

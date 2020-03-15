@@ -39,6 +39,7 @@ func (p *Parser) extractArgsList(list *ast.FieldList) (args []Field) {
 	params := list.List
 	for count, param := range params {
 		currentType := types.ExprString(param.Type)
+
 		var currentPackage string
 		var typePrefix string
 
@@ -49,11 +50,22 @@ func (p *Parser) extractArgsList(list *ast.FieldList) (args []Field) {
 				typePrefix = strings.Join(slice[0:len(slice)-1], "")
 				currentType = slice[len(slice)-1]
 			}
+
 			currentPackage = p.Service.Name
 		}
 
+		if res := strings.Split(currentType, "."); len(res) > 1 {
+			currentType = res[1]
+			for _, i := range p.Pkg.Imports() {
+				if i.Name() == res[0] {
+					currentPackage = i.Path()
+					break
+				}
+			}
+		}
+
+		log.Println("$$$", currentType, currentPackage)
 		if len(param.Names) != 0 {
-			log.Println(param.Names)
 			for _, name := range param.Names {
 				args = append(args, Field{
 					Name:    name.Name,
