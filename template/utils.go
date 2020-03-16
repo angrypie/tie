@@ -214,13 +214,12 @@ func createTypeDeclFromArgs(name string, args []parser.Field, info *PackageInfo)
 	})
 }
 
-//TODO use ServicePat in all modules by default ( httmod not working now )
 func createTypeFromArg(field parser.Field, info *PackageInfo) Code {
 	t := Op(field.Prefix)
 	if pkg := field.Package; pkg != "" {
 		//Use serviece apth
 		if pkg == info.Service.Name {
-			return t.Qual(info.ServicePath, field.Type)
+			return t.Qual(info.GetServicePath(), field.Type)
 		} else {
 			return t.Qual(pkg, field.Type)
 		}

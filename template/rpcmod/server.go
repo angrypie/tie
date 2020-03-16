@@ -43,7 +43,7 @@ func GenerateUpgraded(p *parser.Parser, services []string) (pkg *template.Packag
 
 func GenerateServer(p *parser.Parser) *template.Package {
 	info := template.NewPackageInfoFromParser(p)
-	info.ServicePath = info.Service.Name + "/tie_modules/rpcmod/upgraded"
+	info.SetServicePath(info.Service.Name + "/tie_modules/rpcmod/upgraded")
 	f := NewFile(strings.ToLower(rpcModuleId))
 
 	f.Func().Id("Main").Params().BlockFunc(func(main *Group) {

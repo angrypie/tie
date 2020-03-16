@@ -44,22 +44,27 @@ type PackageInfo struct {
 	IsInitService bool
 	IsStopService bool
 	Service       *types.Service
-	ServicePath   string
+	//ServicePath should refer to modified original package.
+	servicePath string
 }
 
 func (info PackageInfo) GetServicePath() string {
-	if info.ServicePath == "" {
+	if info.servicePath == "" {
 		return info.Service.Name
 	}
-	return info.ServicePath
+	return info.servicePath
 }
 
-func (info *PackageInfo) IsReceiverType(t string) bool {
+func (info *PackageInfo) SetServicePath(path string) {
+	info.servicePath = path
+}
+
+func (info PackageInfo) IsReceiverType(t string) bool {
 	_, ok := info.Constructors[t]
 	return ok
 }
 
-func (info *PackageInfo) GetConstructor(t string) *parser.Function {
+func (info PackageInfo) GetConstructor(t string) *parser.Function {
 	return info.Constructors[t]
 }
 

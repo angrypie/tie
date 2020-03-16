@@ -22,6 +22,7 @@ func NewModule(p *parser.Parser) template.Module {
 
 func GenerateServer(p *parser.Parser) *template.Package {
 	info := template.NewPackageInfoFromParser(p)
+	//info.SetServicePath(info.Service.Name + "/tie_modules/httpmod/upgraded")
 	f := NewFile(strings.ToLower(httpModuleId))
 
 	f.Func().Id("Main").Params().BlockFunc(func(main *Group) {

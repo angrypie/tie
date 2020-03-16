@@ -18,7 +18,7 @@ func NewClientModule(p *parser.Parser) template.Module {
 func GenerateClient(p *parser.Parser) (pkg *template.Package) {
 	info := template.NewPackageInfoFromParser(p)
 	//TODO all modules noods to create upgraded subpackage to make ServicePath reusable,
-	info.ServicePath = info.Service.Name + "/tie_modules/micromod/upgraded"
+	info.SetServicePath(info.Service.Name + "/tie_modules/micromod/upgraded")
 	f := NewFile(strings.ToLower(microModuleId))
 
 	f.Add(template.CreateReqRespTypes(clientNamesSuffix, info))
