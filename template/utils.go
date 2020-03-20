@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"go/ast"
 	"regexp"
 	"strings"
 
@@ -241,7 +242,7 @@ func makeReceiverInitialization(receiverType string, g *Group, constructor *pars
 		return
 	}
 
-	constructorCall := makeCallWithMiddleware(constructor, info, MiddlewaresMap{"getEnv": Id(GetEnvHelper)})
+	constructorCall := makeEmtyValuesMiddlewareCall(constructor, info, MiddlewaresMap{"getEnv": Id(GetEnvHelper)})
 	g.List(Id(recId), Err()).Op(":=").Qual(info.GetServicePath(), constructor.Name).CallFunc(constructorCall)
 	AddIfErrorGuard(g, nil, nil)
 
@@ -345,6 +346,30 @@ func makeCallWithMiddleware(fn *parser.Function, info *PackageInfo, middlewares 
 		//TODO send nil for pointer or empty object
 		//Bind request argument
 		return ListFunc(CreateArgsListFunc([]parser.Field{field}, "request"))
+	})
+}
+
+func makeEmtyValuesMiddlewareCall(fn *parser.Function, info *PackageInfo, middlewares MiddlewaresMap) func(g *Group) {
+	return CreateArgsList(fn.Arguments, func(arg *Statement, field parser.Field) *Statement {
+		fieldName := field.Name
+		fieldType := field.Type
+
+		for name, middleware := range middlewares {
+			if fieldName == name {
+				return middleware
+			}
+		}
+
+		//TODO add isInterface check remove IsExported from condition and uncomment lines bellow
+		if isFuncType(fieldType) || field.Prefix != "" || ast.IsExported(fieldType) {
+			return Nil()
+		}
+
+		//if ast.IsExported(fieldType) {
+		//return Qual(info.GetServicePath(), TrimPrefix(fieldType)).Block()
+		//}
+
+		return Id(fieldType)
 	})
 }
 
