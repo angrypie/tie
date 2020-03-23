@@ -15,16 +15,12 @@ func main() {
 	app.UsageText = "Use inside directory with tiel.yml or let tie decide automaticaly"
 	app.Action = defaultCommand
 
+	//TODO log all temporary files to be able to remove them with clean command.
 	app.Commands = []*cli.Command{
 		{
 			Name:   "clean",
 			Usage:  "Clean binaries",
 			Action: cleanCommand,
-		},
-		{
-			Name:   "install-deps",
-			Usage:  "Insall Tie dependencies",
-			Action: installGoDependencies,
 		},
 	}
 
@@ -63,11 +59,3 @@ func cleanCommand(c *cli.Context) error {
 	return nil
 }
 
-func installGoDependencies(c *cli.Context) error {
-	err := tasks.InstallGoDependencies()
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Dependencies installed\n")
-	return nil
-}

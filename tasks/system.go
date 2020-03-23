@@ -1,9 +1,6 @@
 package tasks
 
 import (
-	"log"
-	"os/exec"
-
 	"github.com/spf13/afero"
 )
 
@@ -29,20 +26,4 @@ func CleanBinary(dest string) (removed []string, err error) {
 		removed = append(removed, file)
 	}
 	return removed, nil
-}
-
-func InstallGoDependencies() error {
-	deps := []string{
-		"github.com/labstack/echo",
-		"github.com/dgrijalva/jwt-go",
-		"github.com/smallnest/rpcx/...",
-	}
-	for _, dep := range deps {
-		_, err := exec.Command("go", "get", dep).Output()
-		if err != nil {
-			log.Println(err)
-		}
-	}
-
-	return nil
 }
