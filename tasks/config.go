@@ -164,9 +164,8 @@ func initGoModules(dest string) (clean func(), err error) {
 
 	clean = func() {
 		goSumPath := fmt.Sprintf("%s/go.sum", dest)
-		fs.Remove(goModulePath)
-		fs.Remove(goSumPath)
-		return
+		logError(fs.Remove(goModulePath), "removing go.mod")
+		logError(fs.Remove(goSumPath), "removing go.sum")
 	}
 
 	output, err := exec.Command("sh", "-c", "go mod init").CombinedOutput()
@@ -175,6 +174,12 @@ func initGoModules(dest string) (clean func(), err error) {
 	}
 
 	return
+}
+
+func logError(err error, msg string) {
+	if err != nil {
+		log.Println("ERR ", msg, err)
+	}
 }
 
 //upgradeWithServices crate new upgrader for pkg and upgrade with services

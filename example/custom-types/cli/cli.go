@@ -1,8 +1,15 @@
 package main
 
-import "github.com/angrypie/tie/example/custom-types/register"
+import (
+	"log"
+
+	"github.com/angrypie/tie/example/custom-types/register"
+)
 
 func main() {
 	user := register.User{Name: "Paul", Password: "PaulPassword"}
-	register.NewUser(user)
+	err := register.NewUser(user)
+	if err != nil {
+		log.Println("ERR new user", err)
+	}
 }

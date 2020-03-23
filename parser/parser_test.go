@@ -27,9 +27,8 @@ func TestHelpers(t *testing.T) {
 	prefixes := []string{
 		"*", "***", "[]", "[][][][]", "*[]", "[]*", "*[][][]*[]", "",
 	}
-	for _, prefix := range prefixes {
-		ok, p := isExportedType(prefix + "T")
-		assert.True(ok)
-		assert.Equal(prefix, p)
+	for _, expectedPrefix := range prefixes {
+		prefix := getTypePrefix(expectedPrefix + "T")
+		assert.Equal(expectedPrefix, prefix)
 	}
 }

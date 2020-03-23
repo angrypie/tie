@@ -1,8 +1,15 @@
 package pong
 
-import "github.com/angrypie/tie/example/ping-pong/health"
+import (
+	"log"
+
+	"github.com/angrypie/tie/example/ping-pong/health"
+)
 
 func Pong() (resp string, err error) {
-	health.Check("Pong")
+	err = health.Check("Pong")
+	if err != nil {
+		log.Println("ERR health check", err)
+	}
 	return "pong", nil
 }
