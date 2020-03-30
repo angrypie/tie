@@ -397,7 +397,7 @@ func MakeStartServerInit(info *PackageInfo, g *Group) {
 	g.List(Id("port"), Err()).Op(":=").Qual("strconv", "Atoi").Call(Id("portStr"))
 	g.Id("_").Op("=").Id("port")
 	AddIfErrorGuard(g, nil, nil)
-	g.Id("address").Op(":=").Lit("localhost:").Op("+").Id("portStr")
+	g.Id("address").Op(":=").Lit("0.0.0.0:").Op("+").Id("portStr")
 }
 
 //MakeReceiversForHandlers cerates instances for each top level receiver.
