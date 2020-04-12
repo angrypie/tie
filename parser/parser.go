@@ -79,7 +79,10 @@ func (p *Parser) Parse(pkg string) error {
 
 	conf := types.Config{Importer: importer.Default()}
 
-	p.Pkg, _ = conf.Check(p.Package.Path, p.fset, files, nil)
+	p.Pkg, err = conf.Check(p.Package.Path, p.fset, files, nil)
+	if err != nil {
+		log.Println("ERR parsing", err)
+	}
 
 	return nil
 }
@@ -88,20 +91,6 @@ func inspectNodesInPkg(pkg *ast.Package, inspect func(node ast.Node) bool) {
 	for _, file := range pkg.Files {
 		ast.Inspect(file, inspect)
 	}
-}
-
-//GetFunctions returns exported functions from package
-func (p *Parser) GetFunctions() (functions []*Function) {
-	inspectNodesInPkg(p.pkg, func(node ast.Node) bool {
-		switch n := node.(type) {
-		case *ast.FuncDecl:
-			if function, ok := p.processFunction(n); ok {
-				functions = append(functions, function)
-			}
-		}
-		return true
-	})
-	return
 }
 
 //GetTypes returns exported sturct types from package
@@ -188,4 +177,61 @@ func NewPackage(name string) *Package {
 //GetPackageName returns package name.
 func (p *Parser) GetPackageName() string {
 	return p.pkg.Name
+}
+
+//GetFunctions returns exported functions from package
+func (p *Parser) GetFunctions() (functions []*Function) {
+	scope := p.Pkg.Scope()
+	for _, name := range scope.Names() {
+		o := scope.Lookup(name)
+		switch f := o.(type) {
+		case *types.Func:
+			//t := f.Type()
+			sig := f.Type().(*types.Signature)
+			args := p.extractArgsList(sig.Params())
+			results := p.extractArgsList(sig.Results())
+			var receiver Field
+			for _, rec := range p.extractArgsList(types.NewTuple(sig.Recv())) {
+				receiver = rec
+			}
+
+			function := &Function{
+				Name:        f.Name(),
+				Arguments:   args,
+				Results:     results,
+				Receiver:    receiver,
+				Package:     p.Service.Alias,
+				ServiceType: p.Service.Type,
+			}
+			functions = append(functions, function)
+		}
+	}
+	return
+}
+
+func (p *Parser) extractArgsList(list *types.Tuple) (args []Field) {
+	length := list.Len()
+	if list == nil || length == 0 {
+		return
+	}
+
+	for count := 0; count < length; count++ {
+		v := list.At(count)
+		if v == nil {
+			continue
+		}
+
+		name := v.Name()
+		if name == "" {
+			name = fmt.Sprintf("arg%d", count)
+		}
+
+		field := Field{
+			Name: name,
+			Var:  v,
+		}
+		args = append(args, field)
+	}
+
+	return
 }

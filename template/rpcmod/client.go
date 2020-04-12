@@ -64,7 +64,7 @@ func makeClientAPI(info *PackageInfo, f *File) {
 
 		f.Func().ListFunc(func(g *Group) {
 			if template.HasReceiver(fn) {
-				g.Params(Id("resource").Id(fn.Receiver.Type))
+				g.Params(Id("resource").Id(fn.Receiver.GetLocalTypeName()))
 				return
 			}
 		}).Id(fn.Name).
