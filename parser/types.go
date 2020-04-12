@@ -17,7 +17,7 @@ type Function struct {
 	ServiceType string
 }
 
-type Type struct {
+type TypeSpec struct {
 	Name   string
 	Fields []Field
 }

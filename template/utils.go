@@ -186,6 +186,12 @@ func CreateArgsList(
 	}
 }
 
+func CreateTypeAliases(info *PackageInfo) Code {
+	code := Comment("Type aliases").Line()
+	//TODO create type aliases for request and responses
+	return code
+}
+
 func CreateReqRespTypes(postfix string, info *PackageInfo) Code {
 	code := Comment(fmt.Sprintf("Request/Response types (%s)", postfix)).Line()
 

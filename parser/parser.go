@@ -93,28 +93,6 @@ func inspectNodesInPkg(pkg *ast.Package, inspect func(node ast.Node) bool) {
 	}
 }
 
-//GetTypes returns exported sturct types from package
-func (p *Parser) GetTypes() (types []*Type, err error) {
-	inspectNodesInPkg(p.pkg, func(node ast.Node) (goInDepth bool) {
-		switch n := node.(type) {
-		case *ast.GenDecl:
-			if n.Tok != token.TYPE {
-				return
-			}
-			for _, spec := range n.Specs {
-				ts := spec.(*ast.TypeSpec)
-				if st, ok := ts.Type.(*ast.StructType); ok {
-					if t, ok := p.processType(st, ts); ok {
-						types = append(types, t)
-					}
-				}
-			}
-		}
-		return
-	})
-	return types, nil
-}
-
 //ToFiles returns array of files in package. Each file represents as a bytes array.
 func (p *Parser) ToFiles() (files [][]byte) {
 	for _, file := range p.pkg.Files {
@@ -234,4 +212,26 @@ func (p *Parser) extractArgsList(list *types.Tuple) (args []Field) {
 	}
 
 	return
+}
+
+//GetTypes returns exported sturct types from package
+func (p *Parser) GetTypes() (specs []*TypeSpec, err error) {
+	scope := p.Pkg.Scope()
+	for _, name := range scope.Names() {
+		o := scope.Lookup(name)
+		switch t := o.(type) {
+		case *types.TypeName:
+			log.Println(">>>>>TYPE", t.Type().String())
+		}
+	}
+	return
+}
+
+func (p *Parser) processType(st *ast.StructType, ts *ast.TypeSpec) (*TypeSpec, bool) {
+	t := &TypeSpec{
+		Name: ts.Name.Name,
+		//Fields: p.extractArgsList(st.Fields),
+	}
+
+	return t, true
 }
