@@ -231,6 +231,9 @@ func createTypeFromArg(field parser.Field, info *PackageInfo) Code {
 	if path == "" {
 		return Op(local)
 	}
+	if path == info.Service.Name {
+		path = info.GetServicePath()
+	}
 	return Op(prefix).Qual(path, local)
 }
 
