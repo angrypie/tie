@@ -17,9 +17,11 @@ func NewClientModule(p *parser.Parser) template.Module {
 
 func GenerateClient(p *parser.Parser) (pkg *template.Package) {
 	info := template.NewPackageInfoFromParser(p)
+	info.SetServicePath(info.Service.Name + "/tie_modules/rpcmod/upgraded")
 	f := NewFile(strings.ToLower(rpcModuleId))
 
 	f.Add(template.CreateReqRespTypes(clientNamesSuffix, info))
+	f.Add(template.CreateTypeAliases(info))
 
 	makeClientAPI(info, f)
 

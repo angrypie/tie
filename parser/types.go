@@ -25,15 +25,7 @@ type TypeSpec struct {
 type Field struct {
 	Name string
 	Var  *types.Var
-}
-
-func (field Field) TypeString() string {
-	return field.Var.Type().String()
-}
-
-func (field Field) GetLocalTypeName() string {
-	arr := strings.Split(field.Var.Type().String(), field.Var.Pkg().Path()+".")
-	return arr[len(arr)-1]
+	Type
 }
 
 //IsDefined return true if Var type is set.
@@ -41,30 +33,42 @@ func (field Field) IsDefined() bool {
 	return field.Var != nil
 }
 
-func (field Field) PkgPath() string {
+type Type struct {
+	typ types.Type
+}
+
+func (t Type) TypeString() string {
+	return t.typ.String()
+}
+
+func (t Type) GetLocalTypeName() string {
+	arr := strings.Split(t.TypeString(), t.fullPkgPath()+".")
+	return arr[len(arr)-1]
+}
+
+func (t Type) PkgPath() string {
 	return strings.TrimPrefix(
-		field.fullPkgPath(),
+		t.fullPkgPath(),
 		build.Default.GOPATH+"/src/",
 	)
 }
 
-func (field Field) fullPkgPath() string {
-	return traverseType(field.Var.Type())
+func (t Type) fullPkgPath() string {
+	return traverseType(t.typ)
 }
 
-func (field Field) GetTypeParts() (prefix, path, local string) {
-	fullPath := field.fullPkgPath()
-	arr := strings.Split(field.TypeString(), fullPath+".")
+func (t Type) GetTypeParts() (prefix, path, local string) {
+	fullPath := t.fullPkgPath()
+	typeString := t.TypeString()
 
-	local = arr[len(arr)-1]
-	prefix = strings.TrimSuffix(field.TypeString(), fullPath+"."+local)
-	path = field.PkgPath()
+	local = t.GetLocalTypeName()
+	prefix = strings.TrimSuffix(typeString, fullPath+"."+local)
+	path = t.PkgPath()
 
 	return
 }
 
 func traverseType(typ types.Type) (path string) {
-
 	switch t := typ.(type) {
 	case *types.Basic:
 		return
@@ -90,5 +94,12 @@ func traverseType(typ types.Type) (path string) {
 	case *types.Chan:
 	}
 	log.Println("WARN Using unsuported type", reflect.TypeOf(typ))
+	return
+}
+
+func (fn *Function) GetTypeDeps() (deps []Field) {
+	//fields := append(fn.Arguments, fn.Results...)
+	//for _, field := range fields {
+	//}
 	return
 }

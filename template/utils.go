@@ -188,7 +188,22 @@ func CreateArgsList(
 
 func CreateTypeAliases(info *PackageInfo) Code {
 	code := Comment("Type aliases").Line()
-	//TODO create type aliases for request and responses
+	done := make(map[string]bool)
+	ForEachFunction(info, true, func(fn *parser.Function) {
+		fields := append(fn.Arguments, fn.Results...)
+		for _, field := range fields {
+			if info.Service.Name != field.PkgPath() || done[field.TypeString()] {
+				continue
+			}
+			done[field.TypeString()] = true
+			local := field.GetLocalTypeName()
+
+			code.Type().Id(local).Op("=").Qual(info.GetServicePath(), local)
+			log.Println(">>>>", field.TypeString())
+			log.Println(Type().Id(local).Op("=").Qual(info.GetServicePath(), local).GoString())
+			code.Line()
+		}
+	})
 	return code
 }
 
@@ -238,7 +253,6 @@ func createTypeFromArg(field parser.Field, info *PackageInfo) Code {
 }
 
 func injectOriginalMethodCall(g *Group, fn *parser.Function, method Code) {
-	log.Println("fn.Results", fn.Results)
 	g.ListFunc(CreateArgsListFunc(fn.Results, "response")).
 		Op("=").Add(method).Call(ListFunc(CreateArgsListFunc(fn.Arguments, "request")))
 }

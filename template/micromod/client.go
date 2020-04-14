@@ -22,6 +22,7 @@ func GenerateClient(p *parser.Parser) (pkg *template.Package) {
 	f := NewFile(strings.ToLower(microModuleId))
 
 	f.Add(template.CreateReqRespTypes(clientNamesSuffix, info))
+	f.Add(template.CreateTypeAliases(info))
 
 	makeClientAPI(info, f)
 

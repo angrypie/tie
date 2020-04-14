@@ -207,6 +207,7 @@ func (p *Parser) extractArgsList(list *types.Tuple) (args []Field) {
 		field := Field{
 			Name: name,
 			Var:  v,
+			Type: Type{v.Type()},
 		}
 		args = append(args, field)
 	}
