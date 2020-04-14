@@ -2,7 +2,6 @@ package template
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 
@@ -192,15 +191,13 @@ func CreateTypeAliases(info *PackageInfo) Code {
 	ForEachFunction(info, true, func(fn *parser.Function) {
 		fields := append(fn.Arguments, fn.Results...)
 		for _, field := range fields {
+			//Skip not local types and already processed types
 			if info.Service.Name != field.PkgPath() || done[field.TypeString()] {
 				continue
 			}
 			done[field.TypeString()] = true
 			local := field.GetLocalTypeName()
-
 			code.Type().Id(local).Op("=").Qual(info.GetServicePath(), local)
-			log.Println(">>>>", field.TypeString())
-			log.Println(Type().Id(local).Op("=").Qual(info.GetServicePath(), local).GoString())
 			code.Line()
 		}
 	})
@@ -242,7 +239,6 @@ func createTypeDeclFromArgs(name string, args []parser.Field, info *PackageInfo)
 
 func createTypeFromArg(field parser.Field, info *PackageInfo) Code {
 	prefix, path, local := field.GetTypeParts()
-	//log.Println("====", prefix, "|", path, "|", local)
 	if path == "" {
 		return Op(local)
 	}

@@ -87,12 +87,6 @@ func (p *Parser) Parse(pkg string) error {
 	return nil
 }
 
-func inspectNodesInPkg(pkg *ast.Package, inspect func(node ast.Node) bool) {
-	for _, file := range pkg.Files {
-		ast.Inspect(file, inspect)
-	}
-}
-
 //ToFiles returns array of files in package. Each file represents as a bytes array.
 func (p *Parser) ToFiles() (files [][]byte) {
 	for _, file := range p.pkg.Files {
@@ -228,11 +222,3 @@ func (p *Parser) GetTypes() (specs []*TypeSpec, err error) {
 	return
 }
 
-func (p *Parser) processType(st *ast.StructType, ts *ast.TypeSpec) (*TypeSpec, bool) {
-	t := &TypeSpec{
-		Name: ts.Name.Name,
-		//Fields: p.extractArgsList(st.Fields),
-	}
-
-	return t, true
-}
