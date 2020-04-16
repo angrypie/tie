@@ -32,7 +32,7 @@ func GenerateServer(p *parser.Parser) *template.Package {
 		makeStartHTTPServer(info, main, f)
 	})
 	template.MakeHandlers(info, f, makeHTTPHandler)
-	f.Add(template.CreateReqRespTypes(httpModuleId, info))
+	f.Add(template.CreateReqRespTypes(info))
 	makeHelpersHTTP(f)
 
 	return &template.Package{
@@ -42,7 +42,7 @@ func GenerateServer(p *parser.Parser) *template.Package {
 }
 
 func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
-	_, request, response := template.GetMethodTypes(fn, httpModuleId)
+	_, request, response := template.GetMethodTypes(fn)
 	handlerBody := func(g *Group) {
 		//Bind request params
 		//Empty argument needs to avoid errors if no other arguments exist
@@ -72,7 +72,7 @@ func makeHTTPHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 	}
 
 	template.MakeHandlerWrapper(
-		httpModuleId, handlerBody, info, fn, file,
+		handlerBody, info, fn, file,
 		Id("ctx").Qual(echoPath, "Context"),
 		Err().Error(),
 	)
@@ -91,7 +91,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 
 		//.2 Add handler for each function.
 		template.ForEachFunction(info, true, func(fn *parser.Function) {
-			handler, _, _ := template.GetMethodTypes(fn, httpModuleId)
+			handler, _, _ := template.GetMethodTypes(fn)
 			route := fmt.Sprintf("%s/%s", fn.Receiver.GetLocalTypeName(), fn.Name)
 
 			g.Id("server").Dot("POST").Call(

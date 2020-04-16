@@ -8,7 +8,6 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
-const clientNamesSuffix = ""
 const rpcxClient = "github.com/smallnest/rpcx/client"
 
 func NewClientModule(p *parser.Parser) template.Module {
@@ -20,7 +19,7 @@ func GenerateClient(p *parser.Parser) (pkg *template.Package) {
 	info.SetServicePath(info.Service.Name + "/tie_modules/rpcmod/upgraded")
 	f := NewFile(strings.ToLower(rpcModuleId))
 
-	f.Add(template.CreateReqRespTypes(clientNamesSuffix, info))
+	f.Add(template.CreateReqRespTypes(info))
 	f.Add(template.CreateTypeAliases(info))
 
 	makeClientAPI(info, f)
@@ -39,16 +38,16 @@ func makeClientAPI(info *PackageInfo, f *File) {
 
 	addGetRpcClient(info, f)
 	template.ForEachFunction(info, true, func(fn *parser.Function) {
-		_, request, response := template.GetMethodTypes(fn, clientNamesSuffix)
-		rpcMethodName, _, _ := template.GetMethodTypes(fn, rpcModuleId)
+		rpcMethodName, requestType, responseType := template.GetMethodTypes(fn)
 
 		args := fn.Arguments
 		body := func(g *Group) {
-			g.Id("response").Op(":=").New(Id(response))
-			g.Id("request").Op(":=").New(Id(request))
+			request, response := template.ID("request"), template.ID("response")
+			g.Id(response).Op(":=").New(Id(responseType))
+			g.Id(request).Op(":=").New(Id(requestType))
 
 			if len(args) != 0 {
-				g.ListFunc(template.CreateArgsListFunc(args, "request")).Op("=").
+				g.ListFunc(template.CreateArgsListFunc(args, request)).Op("=").
 					ListFunc(template.CreateArgsListFunc(args))
 			}
 
@@ -58,10 +57,10 @@ func makeClientAPI(info *PackageInfo, f *File) {
 
 			g.Err().Op("=").Id("xclient").Dot("Call").Call(
 				Qual("context", "Background").Call(), Lit(rpcMethodName),
-				Id("request"), Id("response"),
+				Id(request), Id(response),
 			)
 			template.AddIfErrorGuard(g, nil, nil)
-			g.Return(ListFunc(template.CreateArgsListFunc(fn.Results, "response")))
+			g.Return(ListFunc(template.CreateArgsListFunc(fn.Results, response)))
 		}
 
 		f.Func().ListFunc(func(g *Group) {

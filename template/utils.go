@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"math/rand"
 	"regexp"
 	"strings"
 
@@ -9,14 +10,34 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
-func GetMethodTypes(fn *parser.Function, postfix string) (handler, request, response string) {
+var uniqueNames map[string]string
+
+func init() {
+	uniqueNames = make(map[string]string)
+}
+
+func ID(name ...string) string {
+	prefix := "id"
+	if len(name) != 0 {
+		prefix = strings.Join(name, "")
+		if value, ok := uniqueNames[prefix]; ok {
+			return value
+		}
+	}
+	id := fmt.Sprintf("%s__%d", prefix, rand.Intn(999999))
+	uniqueNames[prefix] = id
+	return id
+}
+
+func GetMethodTypes(fn *parser.Function) (handler, request, response string) {
 	method, receiver := fn.Name, ""
 	if HasReceiver(fn) {
 		receiver = fn.Receiver.GetLocalTypeName()
 	}
-	handler = fmt.Sprintf("%s%s%sHandler", receiver, method, postfix)
-	request = fmt.Sprintf("%s%s%sRequest", receiver, method, postfix)
-	response = fmt.Sprintf("%s%s%sResponse", receiver, method, postfix)
+
+	handler = ID(receiver, method, "Handler")
+	request = ID(receiver, method, "Request")
+	response = ID(receiver, method, "Response")
 	return
 }
 
@@ -204,13 +225,13 @@ func CreateTypeAliases(info *PackageInfo) Code {
 	return code
 }
 
-func CreateReqRespTypes(postfix string, info *PackageInfo) Code {
-	code := Comment(fmt.Sprintf("Request/Response types (%s)", postfix)).Line()
+func CreateReqRespTypes(info *PackageInfo) Code {
+	code := Comment("Request/Response types").Line()
 
 	ForEachFunction(info, true, func(fn *parser.Function) {
 		arguments := CreateCombinedHandlerArgs(fn, info)
 
-		_, reqName, respName := GetMethodTypes(fn, postfix)
+		_, reqName, respName := GetMethodTypes(fn)
 		code.Add(createTypeDeclFromArgs(reqName, arguments, info))
 		code.Line()
 		code.Add(createTypeDeclFromArgs(respName, fn.Results, info))
@@ -524,11 +545,12 @@ func MakeOriginalCall(
 	errGuard(g, Err().Op(":=").Id("response").Dot("Err"))
 }
 
+//TODO remove moduleId
 func MakeHandlerWrapper(
-	moduleId string, handlerBody func(*Group), info *PackageInfo, fn *parser.Function, file *Group,
+	handlerBody func(*Group), info *PackageInfo, fn *parser.Function, file *Group,
 	args, returns *Statement,
 ) {
-	handler, _, _ := GetMethodTypes(fn, moduleId)
+	handler, _, _ := GetMethodTypes(fn)
 
 	wrapperParams := func(g *Group) {
 		if !HasReceiver(fn) {

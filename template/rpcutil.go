@@ -29,7 +29,7 @@ func MakeStartRPCServer(
 
 		//.2 Add handler for each function.
 		ForEachFunction(info, true, func(fn *parser.Function) {
-			handler, request, response := GetMethodTypes(fn, moduleId)
+			handler, request, response := GetMethodTypes(fn)
 
 			f.Func().Params(Id("resource").Id(resourceName)).Id(handler).
 				Params(GetRpcHandlerArgsList(request, response)).

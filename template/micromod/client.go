@@ -9,8 +9,6 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
-const clientNamesSuffix = ""
-
 func NewClientModule(p *parser.Parser) template.Module {
 	return template.NewStandartModule("client", GenerateClient, p, nil)
 }
@@ -21,7 +19,7 @@ func GenerateClient(p *parser.Parser) (pkg *template.Package) {
 	info.SetServicePath(info.Service.Name + "/tie_modules/micromod/upgraded")
 	f := NewFile(strings.ToLower(microModuleId))
 
-	f.Add(template.CreateReqRespTypes(clientNamesSuffix, info))
+	f.Add(template.CreateReqRespTypes(info))
 	f.Add(template.CreateTypeAliases(info))
 
 	makeClientAPI(info, f)
@@ -40,17 +38,17 @@ func makeClientAPI(info *PackageInfo, f *File) {
 	template.MakeForEachReceiver(info, cb)
 
 	template.ForEachFunction(info, true, func(fn *parser.Function) {
-		_, request, response := template.GetMethodTypes(fn, clientNamesSuffix)
-		rpcMethodName, _, _ := template.GetMethodTypes(fn, microModuleId)
-		resourceName := template.GetResourceName(info)
-
 		args := fn.Arguments
+
 		body := func(g *Group) {
-			g.Id("response").Op(":=").New(Id(response))
-			g.Id("request").Op(":=").New(Id(request))
+			rpcMethodName, requestType, responseType := template.GetMethodTypes(fn)
+			request, response := template.ID("request"), template.ID("response")
+
+			g.Id(response).Op(":=").New(Id(responseType))
+			g.Id(request).Op(":=").New(Id(requestType))
 
 			if len(args) != 0 {
-				g.ListFunc(template.CreateArgsListFunc(args, "request")).Op("=").
+				g.ListFunc(template.CreateArgsListFunc(args, request)).Op("=").
 					ListFunc(template.CreateArgsListFunc(args))
 			}
 
@@ -58,17 +56,18 @@ func makeClientAPI(info *PackageInfo, f *File) {
 			g.Id("service").Dot("Init").Call()
 			g.Id("c").Op(":=").Id("service").Dot("Client").Call()
 
+			resourceName := template.GetResourceName(info)
 			g.Id("microRequest").Op(":=").Id("client").Dot("NewRequest").Call(
 				Lit(resourceName), Lit(fmt.Sprintf("%s.%s", resourceName, rpcMethodName)),
-				Id("request"),
+				Id(request),
 				Qual(gomicroClient, "WithContentType").Call(Lit("application/json")),
 			)
 
 			g.Err().Op("=").Id("c").Dot("Call").Call(
-				Qual("context", "TODO").Call(), Id("microRequest"), Id("response"))
+				Qual("context", "TODO").Call(), Id("microRequest"), Id(response))
 			template.AddIfErrorGuard(g, nil, nil)
 
-			g.Return(ListFunc(template.CreateArgsListFunc(fn.Results, "response")))
+			g.Return(ListFunc(template.CreateArgsListFunc(fn.Results, response)))
 		}
 
 		f.Func().ListFunc(func(g *Group) {

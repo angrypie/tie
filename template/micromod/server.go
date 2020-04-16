@@ -55,7 +55,7 @@ func GenerateServer(p *parser.Parser) *template.Package {
 	})
 
 	template.MakeHandlers(info, f, makeRPCHandler)
-	f.Add(template.CreateReqRespTypes(microModuleId, info))
+	f.Add(template.CreateReqRespTypes(info))
 	template.AddGetEnvHelper(f)
 
 	return &template.Package{
@@ -71,10 +71,10 @@ func makeRPCHandler(info *PackageInfo, fn *parser.Function, file *Group) {
 		g.Return(Nil())
 	}
 
-	_, request, response := template.GetMethodTypes(fn, microModuleId)
+	_, request, response := template.GetMethodTypes(fn)
 
 	template.MakeHandlerWrapper(
-		microModuleId, handlerBody, info, fn, file,
+		handlerBody, info, fn, file,
 		template.GetRpcHandlerArgsList(request, response),
 		Err().Error(),
 	)
