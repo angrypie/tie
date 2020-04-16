@@ -92,7 +92,11 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 		//.2 Add handler for each function.
 		template.ForEachFunction(info, true, func(fn *parser.Function) {
 			handler, _, _ := template.GetMethodTypes(fn)
-			route := fmt.Sprintf("%s/%s", fn.Receiver.GetLocalTypeName(), fn.Name)
+
+			route := fmt.Sprintf("/%s", fn.Name)
+			if fn.Receiver.IsDefined() {
+				route = fmt.Sprintf("%s/%s", fn.Receiver.GetLocalTypeName(), fn.Name)
+			}
 
 			g.Id("server").Dot("POST").Call(
 				Lit(toSnakeCase(route)),
