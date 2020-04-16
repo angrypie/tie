@@ -93,7 +93,7 @@ func traverseType(typ types.Type) (path string) {
 	case *types.Interface:
 	case *types.Chan:
 	}
-	log.Println("WARN Using unsuported type", reflect.TypeOf(typ))
+	log.Println("WARN Using unsuported type", reflect.TypeOf(typ), typ.String())
 	return
 }
 

@@ -77,7 +77,7 @@ func (p *Parser) Parse(pkg string) error {
 		files = append(files, file)
 	}
 
-	conf := types.Config{Importer: importer.Default()}
+	conf := types.Config{Importer: importer.For("source", nil)}
 
 	p.Pkg, err = conf.Check(p.Package.Path, p.fset, files, nil)
 	if err != nil {
@@ -158,7 +158,9 @@ func (p *Parser) GetFunctions() (functions []*Function) {
 		o := scope.Lookup(name)
 		switch f := o.(type) {
 		case *types.Func:
-			//t := f.Type()
+			if !f.Exported() {
+				continue
+			}
 			sig := f.Type().(*types.Signature)
 			args := p.extractArgsList(sig.Params())
 			results := p.extractArgsList(sig.Results())
