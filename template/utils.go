@@ -400,6 +400,14 @@ func makeEmtyValuesMiddlewareCall(fn *parser.Function, info *PackageInfo, middle
 			}
 		}
 
+		//TODO deduct zero value from any type
+		switch field.GetLocalTypeName() {
+		case "string":
+			return Lit("")
+		case "int":
+			return Lit(0)
+		}
+
 		//TODO add isInterface check remove IsExported from condition and uncomment lines bellow
 		if isFuncType(local) || prefix != "" || path != "" {
 			return Nil()

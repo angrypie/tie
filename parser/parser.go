@@ -17,6 +17,7 @@ import (
 
 	tieTypes "github.com/angrypie/tie/types"
 	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/go/types/typeutil"
 )
 
 type Package struct {
@@ -153,62 +154,73 @@ func (p *Parser) GetPackageName() string {
 
 //GetFunctions returns exported functions from package
 func (p *Parser) GetFunctions() (functions []*Function) {
+	addFunc := func(f *types.Func) {
+		if !f.Exported() {
+			return
+		}
+		sig := f.Type().(*types.Signature)
+		args := extractArgsList(sig.Params())
+		results := extractArgsList(sig.Results())
+		receiver := NewField(sig.Recv())
+
+		function := &Function{
+			Name:        f.Name(),
+			Arguments:   args,
+			Results:     results,
+			Receiver:    receiver,
+			Package:     p.Service.Alias,
+			ServiceType: p.Service.Type,
+		}
+		functions = append(functions, function)
+	}
 	scope := p.Pkg.Scope()
 	for _, name := range scope.Names() {
 		o := scope.Lookup(name)
-		switch f := o.(type) {
+		switch t := o.(type) {
+		case *types.TypeName:
+			mset := &typeutil.MethodSetCache{}
+			methods := typeutil.IntuitiveMethodSet(t.Type(), mset)
+			for _, method := range methods {
+				addFunc(method.Obj().(*types.Func))
+			}
 		case *types.Func:
-			if !f.Exported() {
-				continue
-			}
-			sig := f.Type().(*types.Signature)
-			args := p.extractArgsList(sig.Params())
-			results := p.extractArgsList(sig.Results())
-			var receiver Field
-			for _, rec := range p.extractArgsList(types.NewTuple(sig.Recv())) {
-				receiver = rec
-			}
-
-			function := &Function{
-				Name:        f.Name(),
-				Arguments:   args,
-				Results:     results,
-				Receiver:    receiver,
-				Package:     p.Service.Alias,
-				ServiceType: p.Service.Type,
-			}
-			functions = append(functions, function)
+			addFunc(t)
 		}
 	}
 	return
 }
 
-func (p *Parser) extractArgsList(list *types.Tuple) (args []Field) {
-	length := list.Len()
-	if list == nil || length == 0 {
+func extractArgsList(list *types.Tuple) (args []Field) {
+	if list == nil {
 		return
 	}
 
-	for count := 0; count < length; count++ {
+	for count, length := 0, list.Len(); count < length; count++ {
 		v := list.At(count)
 		if v == nil {
 			continue
 		}
 
-		name := v.Name()
-		if name == "" {
-			name = fmt.Sprintf("arg%d", count)
+		field := NewField(v)
+
+		if field.Name == "" {
+			field.Name = fmt.Sprintf("arg%d", count)
 		}
 
-		field := Field{
-			Name: name,
-			Var:  v,
-			Type: Type{v.Type()},
-		}
 		args = append(args, field)
 	}
-
 	return
+}
+
+func NewField(v *types.Var) Field {
+	if v == nil {
+		return Field{}
+	}
+	return Field{
+		Name: v.Name(),
+		Var:  v,
+		Type: Type{v.Type()},
+	}
 }
 
 //GetTypes returns exported sturct types from package
@@ -223,4 +235,3 @@ func (p *Parser) GetTypes() (specs []*TypeSpec, err error) {
 	}
 	return
 }
-
