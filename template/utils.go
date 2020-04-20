@@ -553,7 +553,6 @@ func MakeOriginalCall(
 	errGuard(g, Err().Op(":=").Id("response").Dot("Err"))
 }
 
-//TODO remove moduleId
 func MakeHandlerWrapper(
 	handlerBody func(*Group), info *PackageInfo, fn *parser.Function, file *Group,
 	args, returns *Statement,
@@ -567,8 +566,8 @@ func MakeHandlerWrapper(
 		receiverVarName := GetReceiverVarName(fn.Receiver.GetLocalTypeName())
 		constructorFunc := info.GetConstructor(fn.Receiver.TypeString())
 		if constructorFunc == nil || HasTopLevelReceiver(constructorFunc, info) {
-			_, recPath, recLocal := fn.Receiver.GetTypeParts()
-			g.Id(receiverVarName).Op("*").Qual(recPath, recLocal)
+			_, _, recLocal := fn.Receiver.GetTypeParts()
+			g.Id(receiverVarName).Op("*").Qual(info.GetServicePath(), recLocal)
 		} else {
 			g.Add(getConstructorDepsSignature(constructorFunc, info))
 		}

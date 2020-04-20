@@ -90,6 +90,7 @@ func traverseType(typ types.Type) (path string) {
 	case *types.Struct:
 	case *types.Tuple:
 	case *types.Signature:
+		return
 	case *types.Interface:
 	case *types.Chan:
 	}
