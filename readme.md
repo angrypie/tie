@@ -34,7 +34,7 @@ HTTP API tie.yml configuration:
 services:
   - name: 'github.com/angrypie/tie/example/basic/sum'
     alias: 'sum'
-    type: 'httpOnly'
+    type: 'http'
     port: '8111' 
 ```
 
