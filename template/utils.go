@@ -110,7 +110,7 @@ func isConventionalConstructor(fn *parser.Function) (ok bool, _type string) {
 	}
 
 	rets := make(map[string]bool)
-	for _, ret := range fn.Results {
+	for _, ret := range fn.Results.List() {
 		rets[ret.GetLocalTypeName()] = true
 	}
 	match := getTypeFromConstructorName.FindStringSubmatch(fn.Name)
@@ -210,7 +210,7 @@ func CreateTypeAliases(info *PackageInfo) Code {
 	code := Comment("Type aliases").Line()
 	done := make(map[string]bool)
 	ForEachFunction(info, true, func(fn *parser.Function) {
-		fields := append(fn.Arguments, fn.Results...)
+		fields := append(fn.Arguments, fn.Results.List()...)
 		for _, field := range fields {
 			//Skip not local types and already processed types
 			if info.Service.Name != field.PkgPath() || done[field.TypeString()] {
@@ -234,7 +234,7 @@ func CreateReqRespTypes(info *PackageInfo) Code {
 		_, reqName, respName := GetMethodTypes(fn)
 		code.Add(createTypeDeclFromArgs(reqName, arguments, info))
 		code.Line()
-		code.Add(createTypeDeclFromArgs(respName, fn.Results, info))
+		code.Add(createTypeDeclFromArgs(respName, fn.Results.List(), info))
 		code.Line()
 	})
 	return code
@@ -270,7 +270,7 @@ func createTypeFromArg(field parser.Field, info *PackageInfo) Code {
 }
 
 func injectOriginalMethodCall(g *Group, fn *parser.Function, method Code) {
-	g.ListFunc(CreateArgsListFunc(fn.Results, "response")).
+	g.ListFunc(CreateArgsListFunc(fn.Results.List(), "response")).
 		Op("=").Add(method).Call(ListFunc(CreateArgsListFunc(fn.Arguments, "request")))
 }
 
@@ -283,7 +283,7 @@ func makeReceiverInitialization(receiverType string, g *Group, constructor *pars
 
 	constructorCall := makeEmtyValuesMiddlewareCall(constructor, info, MiddlewaresMap{"getEnv": Id(GetEnvHelper)})
 	g.List(Id(recId), Err()).Op(":=").Qual(info.GetServicePath(), constructor.Name).CallFunc(constructorCall)
-	AddIfErrorGuard(g, nil, nil)
+	AddIfErrorGuard(g, nil, "err", nil)
 
 	for _, fn := range info.Functions {
 		if fn.Name == "Stop" && info.GetConstructor(fn.Receiver.TypeString()) == constructor {
@@ -352,13 +352,30 @@ func AddGetEnvHelper(f *File) {
 
 type IfErrorGuard = func(scope *Group, statement *Statement)
 
-func AddIfErrorGuard(scope *Group, statement *Statement, code Code) {
+func AddIfErrorGuard(scope *Group, statement *Statement, errId string, code Code) {
 	scope.If(
 		statement,
-		Err().Op("!=").Nil(),
+		Id(errId).Op("!=").Nil(),
 	).Block(
 		Return(code),
 	)
+}
+
+//BindErrToResults assigns err statement to last item in fields if it's error.
+func AssignErrToResults(err *Statement, fields parser.ResultFields) (statement *Statement) {
+	last := fields.Last
+	if last.GetLocalTypeName() == "error" {
+		return Id(last.Name).Op("=").Add(err)
+	}
+	return
+}
+
+func AssignResultsToErr(err *Statement, respId string, fields parser.ResultFields) (statement *Statement) {
+	last := fields.Last
+	if last.GetLocalTypeName() != "error" {
+		return
+	}
+	return err.Op("=").ListFunc(CreateArgsListFunc([]parser.Field{last}, respId))
 }
 
 type MiddlewaresMap = map[string]*Statement
@@ -437,14 +454,14 @@ func MakeStartServerInit(info *PackageInfo, g *Group) {
 		//Use random port if configuration and environment is empty
 		if portStr == "" {
 			g.List(Id("portStr"), Err()).Op("=").Qual(rndport, "GetAddress").Call(Lit("%d"))
-			AddIfErrorGuard(g, nil, nil)
+			AddIfErrorGuard(g, nil, "err", nil)
 		} else {
 			g.Id("portStr").Op("=").Lit(portStr)
 		}
 	})
 	g.List(Id("port"), Err()).Op(":=").Qual("strconv", "Atoi").Call(Id("portStr"))
 	g.Id("_").Op("=").Id("port")
-	AddIfErrorGuard(g, nil, nil)
+	AddIfErrorGuard(g, nil, "err", nil)
 	g.Id("address").Op(":=").Lit("0.0.0.0:").Op("+").Id("portStr")
 }
 
@@ -549,8 +566,7 @@ func MakeOriginalCall(
 	} else {
 		injectOriginalMethodCall(g, fn, Qual(info.GetServicePath(), fn.Name))
 	}
-
-	errGuard(g, Err().Op(":=").Id("response").Dot("Err"))
+	errGuard(g, AssignResultsToErr(Err(), "response", fn.Results))
 }
 
 func MakeHandlerWrapper(

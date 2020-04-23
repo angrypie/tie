@@ -159,9 +159,13 @@ func (p *Parser) GetFunctions() (functions []*Function) {
 			return
 		}
 		sig := f.Type().(*types.Signature)
-		args := extractArgsList(sig.Params())
-		results := extractArgsList(sig.Results())
 		receiver := NewField(sig.Recv())
+		args := extractArgsList(sig.Params())
+		results, err := resultsFromArgs(extractArgsList(sig.Results()))
+		if err != nil {
+			log.Printf("skip function %s: %e\n", f.FullName(), err)
+			return
+		}
 
 		function := &Function{
 			Name:        f.Name(),
@@ -190,6 +194,22 @@ func (p *Parser) GetFunctions() (functions []*Function) {
 	return
 }
 
+//resultsFromArgs creates field list that contain error field type at last position
+func resultsFromArgs(args []Field) (results ResultFields, err error) {
+	length := len(args)
+	if length == 0 {
+		return
+	}
+	last := args[length-1]
+	if last.GetLocalTypeName() != "error" {
+		err = errors.New("method should have (err error) return type at last position")
+		return
+	}
+
+	results = ResultFields{Last: last, body: args[0 : length-1]}
+	return
+}
+
 func extractArgsList(list *types.Tuple) (args []Field) {
 	if list == nil {
 		return
@@ -209,6 +229,7 @@ func extractArgsList(list *types.Tuple) (args []Field) {
 
 		args = append(args, field)
 	}
+
 	return
 }
 

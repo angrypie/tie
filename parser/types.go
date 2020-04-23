@@ -8,10 +8,19 @@ import (
 	"strings"
 )
 
+type ResultFields struct {
+	Last Field
+	body []Field
+}
+
+func (rf ResultFields) List() []Field {
+	return append(rf.body, rf.Last)
+}
+
 type Function struct {
 	Name        string
 	Arguments   []Field
-	Results     []Field
+	Results     ResultFields
 	Receiver    Field
 	Package     string
 	ServiceType string
@@ -95,12 +104,5 @@ func traverseType(typ types.Type) (path string) {
 	case *types.Chan:
 	}
 	log.Println("WARN Using unsuported type", reflect.TypeOf(typ), typ.String())
-	return
-}
-
-func (fn *Function) GetTypeDeps() (deps []Field) {
-	//fields := append(fn.Arguments, fn.Results...)
-	//for _, field := range fields {
-	//}
 	return
 }
