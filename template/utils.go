@@ -63,7 +63,7 @@ func HasTopLevelReceiver(fn *parser.Function, info *PackageInfo) bool {
 		return false
 	}
 	for _, field := range fn.Arguments {
-		if _, ok := info.Constructors[field.TypeString()]; ok {
+		if info.GetConstructor(field) != nil {
 			return false
 		}
 	}
@@ -150,7 +150,7 @@ func getConstructorDeps(
 	return ListFunc(func(g *Group) {
 		for _, field := range fn.Arguments {
 			t := field.TypeString()
-			if isFuncType(t) || !info.IsReceiverType(t) {
+			if isFuncType(t) || !info.IsReceiverType(field) {
 				continue
 			}
 			createDep(field, g)
@@ -286,7 +286,7 @@ func makeReceiverInitialization(receiverType string, g *Group, constructor *pars
 	AddIfErrorGuard(g, nil, "err", nil)
 
 	for _, fn := range info.Functions {
-		if fn.Name == "Stop" && info.GetConstructor(fn.Receiver.TypeString()) == constructor {
+		if fn.Name == "Stop" && info.GetConstructor(fn.Receiver) == constructor {
 			g.Id("stoppableServices").Op("=").Append(Id("stoppableServices"), Id(recId))
 			return
 		}
@@ -391,7 +391,7 @@ func makeCallWithMiddleware(fn *parser.Function, info *PackageInfo, middlewares 
 		}
 
 		//Inject receiver dependencie
-		if info.IsReceiverType(field.TypeString()) {
+		if info.IsReceiverType(field) {
 			return Id(GetReceiverVarName(field.GetLocalTypeName()))
 		}
 
@@ -519,7 +519,7 @@ func MakeHandlerWrapperCall(fn *parser.Function, info *PackageInfo, createDep fu
 		if !HasReceiver(fn) {
 			return
 		}
-		constructorFunc := info.GetConstructor(fn.Receiver.GetLocalTypeName())
+		constructorFunc := info.GetConstructor(fn.Receiver)
 		receiverVarName := GetReceiverVarName(fn.Receiver.GetLocalTypeName())
 		if constructorFunc == nil || HasTopLevelReceiver(constructorFunc, info) {
 			//Inject receiver to http handler.
@@ -552,7 +552,7 @@ func MakeOriginalCall(
 	//else just call public package method
 	if HasReceiver(fn) {
 		_, recPath, recLocal := fn.Receiver.GetTypeParts()
-		constructor := info.GetConstructor(fn.Receiver.TypeString())
+		constructor := info.GetConstructor(fn.Receiver)
 		receiverVarName := GetReceiverVarName(fn.Receiver.GetLocalTypeName())
 		if constructor != nil && !HasTopLevelReceiver(constructor, info) {
 			g.Id(receiverVarName).Op(":=").Op("&").Qual(recPath, recLocal).Block()
@@ -580,7 +580,7 @@ func MakeHandlerWrapper(
 			return
 		}
 		receiverVarName := GetReceiverVarName(fn.Receiver.GetLocalTypeName())
-		constructorFunc := info.GetConstructor(fn.Receiver.TypeString())
+		constructorFunc := info.GetConstructor(fn.Receiver)
 		if constructorFunc == nil || HasTopLevelReceiver(constructorFunc, info) {
 			_, _, recLocal := fn.Receiver.GetTypeParts()
 			g.Id(receiverVarName).Op("*").Qual(info.GetServicePath(), recLocal)
@@ -601,11 +601,11 @@ func CreateCombinedHandlerArgs(fn *parser.Function, info *PackageInfo) []parser.
 	if !HasReceiver(fn) {
 		return arguments
 	}
-	cons := info.GetConstructor(fn.Receiver.TypeString())
+	cons := info.GetConstructor(fn.Receiver)
 	if cons != nil && !HasTopLevelReceiver(cons, info) {
 		for _, arg := range cons.Arguments {
 			//Don't include heplers
-			if info.IsReceiverType(arg.TypeString()) || arg.Name == "getHeader" || arg.Name == "getEnv" {
+			if info.IsReceiverType(arg) || arg.Name == "getHeader" || arg.Name == "getEnv" {
 				continue
 			}
 			arguments = append(arguments, arg)

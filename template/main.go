@@ -59,13 +59,12 @@ func (info *PackageInfo) SetServicePath(path string) {
 	info.servicePath = path
 }
 
-func (info PackageInfo) IsReceiverType(t string) bool {
-	_, ok := info.Constructors[t]
-	return ok
+func (info PackageInfo) IsReceiverType(field parser.Field) bool {
+	return info.GetConstructor(field) != nil
 }
 
-func (info PackageInfo) GetConstructor(t string) *parser.Function {
-	return info.Constructors[t]
+func (info PackageInfo) GetConstructor(field parser.Field) *parser.Function {
+	return info.Constructors[field.GetLocalTypeName()]
 }
 
 func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
@@ -92,12 +91,6 @@ func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
 		}
 		if fn.Name == "StopService" {
 			info.IsStopService = true
-		}
-
-		if HasReceiver(fn) {
-			if _, ok := info.Constructors[fn.Receiver.TypeString()]; ok {
-				continue
-			}
 		}
 
 		ok, receiverType := isConventionalConstructor(fn)
