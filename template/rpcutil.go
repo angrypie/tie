@@ -5,9 +5,8 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
-//TODO consider to remove moduld in naming
 func MakeStartRPCServer(
-	info *PackageInfo, moduleId string, main *Group, f *File,
+	info *PackageInfo, main *Group, f *File,
 	cb func(g *Group, resource, instance string),
 ) {
 	//TODO handle thi error
