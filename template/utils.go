@@ -84,17 +84,14 @@ func ForEachFunction(info *PackageInfo, skipInit bool, cb func(*parser.Function)
 
 }
 
-//getFnsWithoutConstructors removes type constructors
+//getFnsWithoutConstructors filters constructors from info.Functions
 func getFnsWithoutConstructors(info *PackageInfo) (filtered []*parser.Function) {
-	fns := info.Functions
-
-	//Get all constructors
 	constructors := make(map[*parser.Function]bool)
 	for _, fn := range info.Constructors {
 		constructors[fn] = true
 	}
 
-	for _, fn := range fns {
+	for _, fn := range info.Functions {
 		if !constructors[fn] {
 			filtered = append(filtered, fn)
 		}

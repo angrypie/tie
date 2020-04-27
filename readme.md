@@ -20,8 +20,8 @@ It will produce two binaries `sum.run` and `cli.run`
 Execute `sum.run` to start RPC service. Try to add two numbers using `cli.run`:
 
 ```bash
-	./cli.run 18 24
-	#18+24=42
+./cli.run 18 24
+#18+24=42
 ```
 
 #### Turn package to HTTP API
@@ -32,15 +32,15 @@ Go to [example/basic/sum](example/basic/sum/) and execute `tie` there.
 Use newly created `sum.run` to start HTTP API service:
 
 ```bash
-	export PORT=8080 #if not set, random port will be used
-	./sum.run
+export PORT=8080 #if not set, random port will be used
+./sum.run
 ```
 
 Try to access HTTP API via curl:
 
 ```bash
-  curl -X POST -H 'Content-Type: application/json' localhost:8111/sum -d '{"a":20, "b":22}'
-	#20+22=42
+curl -X POST -H 'Content-Type: application/json' localhost:8111/sum -d '{"a":20, "b":22}'
+#20+22=42
 ```
 
 
