@@ -39,7 +39,7 @@ func NewMainModule(p *parser.Parser, deps []Module) Module {
 
 type PackageInfo struct {
 	Functions     []*parser.Function
-	Constructors  map[string]*parser.Function
+	Constructors  map[string]*TypeConstructor
 	PackageName   string
 	IsInitService bool
 	IsStopService bool
@@ -63,7 +63,7 @@ func (info PackageInfo) IsReceiverType(field parser.Field) bool {
 	return info.GetConstructor(field) != nil
 }
 
-func (info PackageInfo) GetConstructor(field parser.Field) *parser.Function {
+func (info PackageInfo) GetConstructor(field parser.Field) *TypeConstructor {
 	return info.Constructors[field.GetLocalTypeName()]
 }
 
@@ -81,7 +81,7 @@ func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
 	info := PackageInfo{
 		Functions:    fns,
 		Service:      p.Service,
-		Constructors: make(map[string]*parser.Function),
+		Constructors: make(map[string]*TypeConstructor),
 		PackageName:  p.GetPackageName(),
 	}
 
@@ -93,9 +93,9 @@ func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
 			info.IsStopService = true
 		}
 
-		ok, receiverType := isConventionalConstructor(fn)
+		receiver, ok := isConventionalConstructor(fn)
 		if ok {
-			info.Constructors[receiverType] = fn
+			info.Constructors[receiver.GetLocalTypeName()] = NewTypeConstructor(*fn, receiver)
 		}
 	}
 
@@ -104,4 +104,16 @@ func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
 
 func createErrLog(msg string) *Statement {
 	return Qual("log", "Printf").Call(List(Lit("ERR %s: %s"), Lit(msg), Err()))
+}
+
+type TypeConstructor struct {
+	Function parser.Function
+	Receiver parser.Field
+}
+
+func NewTypeConstructor(fn parser.Function, rec parser.Field) (constructor *TypeConstructor) {
+	return &TypeConstructor{
+		Function: fn,
+		Receiver: rec,
+	}
 }

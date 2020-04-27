@@ -57,7 +57,7 @@ func HasReceiver(fn *parser.Function) bool {
 	return fn.Receiver.IsDefined()
 }
 
-//HasTopLevelReceiver returns true if constructor has other receiver as argumenet.
+//HasTopLevelReceiver returns true if function has other receiver as argumenet.
 func HasTopLevelReceiver(fn *parser.Function, info *PackageInfo) bool {
 	if fn == nil {
 		return false
@@ -86,13 +86,8 @@ func ForEachFunction(info *PackageInfo, skipInit bool, cb func(*parser.Function)
 
 //getFnsWithoutConstructors filters constructors from info.Functions
 func getFnsWithoutConstructors(info *PackageInfo) (filtered []*parser.Function) {
-	constructors := make(map[*parser.Function]bool)
-	for _, fn := range info.Constructors {
-		constructors[fn] = true
-	}
-
 	for _, fn := range info.Functions {
-		if !constructors[fn] {
+		if _, ok := isConventionalConstructor(fn); !ok {
 			filtered = append(filtered, fn)
 		}
 	}
@@ -101,21 +96,24 @@ func getFnsWithoutConstructors(info *PackageInfo) (filtered []*parser.Function) 
 
 var getTypeFromConstructorName = regexp.MustCompile(`\ANew(.*)\z`)
 
-func isConventionalConstructor(fn *parser.Function) (ok bool, _type string) {
+func isConventionalConstructor(fn *parser.Function) (receiver parser.Field, ok bool) {
 	if HasReceiver(fn) {
 		return
 	}
 
-	rets := make(map[string]bool)
-	for _, ret := range fn.Results.List() {
-		rets[ret.GetLocalTypeName()] = true
-	}
 	match := getTypeFromConstructorName.FindStringSubmatch(fn.Name)
 	if len(match) < 2 {
 		return
 	}
+	recType := match[1]
 
-	return rets[match[1]], match[1]
+	for _, ret := range fn.Results.List() {
+		if ret.GetLocalTypeName() == recType {
+			return ret, true
+		}
+	}
+
+	return
 }
 
 func TrimPrefix(str string) string {
@@ -128,22 +126,23 @@ func isFuncType(t string) bool {
 	return matchFuncType.MatchString(t)
 }
 
-func getConstructorDepsSignature(fn *parser.Function, info *PackageInfo) (code Code) {
-	return getConstructorDeps(fn, info, func(field parser.Field, g *Group) {
+func getConstructorDepsSignature(constructor *TypeConstructor, info *PackageInfo) (code Code) {
+	return getConstructorDeps(constructor, info, func(field parser.Field, g *Group) {
 		typeName := field.GetLocalTypeName()
 		g.Id(GetReceiverVarName(typeName)).Add(createTypeFromArg(field, info))
 	})
 }
 
 func getConstructorDeps(
-	fn *parser.Function,
+	constructor *TypeConstructor,
 	info *PackageInfo,
 	createDep func(field parser.Field, g *Group),
 ) (code Code) {
-	if fn == nil {
+	if constructor == nil {
 		return List()
 	}
 
+	fn := constructor.Function
 	return ListFunc(func(g *Group) {
 		for _, field := range fn.Arguments {
 			t := field.TypeString()
@@ -255,9 +254,10 @@ func TypeDeclFormFields(name string, args []parser.Field, info *PackageInfo) Cod
 	})
 }
 
-func ClientReceiverType(receiverType string, c *parser.Function, info *PackageInfo) (
+func ClientReceiverType(receiver parser.Field, c *parser.Function, info *PackageInfo) (
 	typeDecl, constructor Code) {
 	args, results := c.Arguments, c.Results.List()
+	receiverType := receiver.GetLocalTypeName()
 
 	typeDecl = Type().Id(receiverType).StructFunc(func(g *Group) {
 		for _, arg := range filterHelperArgs(args, info) {
@@ -321,10 +321,12 @@ func injectOriginalMethodCall(g *Group, fn *parser.Function, method Code) {
 		Op("=").Add(method).Call(ListFunc(CreateArgsListFunc(fn.Arguments, "request")))
 }
 
-func makeReceiverInitialization(receiverType string, g *Group, constructor *parser.Function, info *PackageInfo) {
+//makeReceiverInitialization creates receiver instance using constructor if available or usin new keyword.
+func makeReceiverInitialization(receiver parser.Field, g *Group, constructor *parser.Function, info *PackageInfo) {
+	receiverType := receiver.GetLocalTypeName()
 	recId := GetReceiverVarName(receiverType)
 	if constructor == nil {
-		g.Id(recId).Op(":=").Op("&").Qual(info.GetServicePath(), TrimPrefix(receiverType)).Block()
+		g.Id(recId).Op(":=").New(Qual(info.GetServicePath(), receiverType))
 		return
 	}
 
@@ -333,7 +335,7 @@ func makeReceiverInitialization(receiverType string, g *Group, constructor *pars
 	AddIfErrorGuard(g, nil, "err", nil)
 
 	for _, fn := range info.Functions {
-		if fn.Name == "Stop" && info.GetConstructor(fn.Receiver) == constructor {
+		if fn.Name == "Stop" {
 			g.Id("stoppableServices").Op("=").Append(Id("stoppableServices"), Id(recId))
 			return
 		}
@@ -427,8 +429,8 @@ func AssignResultsToErr(err *Statement, respId string, fields parser.ResultField
 
 type MiddlewaresMap = map[string]*Statement
 
-func makeCallWithMiddleware(fn *parser.Function, info *PackageInfo, middlewares MiddlewaresMap) func(g *Group) {
-	return CreateArgsList(fn.Arguments, func(arg *Statement, field parser.Field) *Statement {
+func makeCallWithMiddleware(constructor *TypeConstructor, info *PackageInfo, middlewares MiddlewaresMap) func(g *Group) {
+	return CreateArgsList(constructor.Function.Arguments, func(arg *Statement, field parser.Field) *Statement {
 		fieldName := field.Name
 
 		for name, middleware := range middlewares {
@@ -513,35 +515,35 @@ func MakeStartServerInit(info *PackageInfo, g *Group) {
 }
 
 //MakeReceiversForHandlers cerates instances for each top level receiver.
-func MakeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map[string]bool) {
-	receiversCreated = make(map[string]bool)
-	cb := func(receiverType string, constructor *parser.Function) {
+func MakeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map[string]parser.Field) {
+	receiversCreated = make(map[string]parser.Field)
+	cb := func(receiver parser.Field, constructor *parser.Function) {
 		//Skip not top level receivers.
 		if constructor != nil && !HasTopLevelReceiver(constructor, info) {
 			return
 		}
-		receiversCreated[receiverType] = true
-		makeReceiverInitialization(receiverType, g, constructor, info)
+		receiversCreated[receiver.GetLocalTypeName()] = receiver
+		makeReceiverInitialization(receiver, g, constructor, info)
 	}
 	MakeForEachReceiver(info, cb)
 	return receiversCreated
 }
 
 //MakeForEachReceiver executes callback for each receiver.
-//TODO replace receiverType string to parser.Field ?
 func MakeForEachReceiver(
-	info *PackageInfo, cb func(receiverType string, constructor *parser.Function),
-) (receiversProcessed map[string]bool) {
+	info *PackageInfo, cb func(receiver parser.Field, constructor *parser.Function),
+) (receiversProcessed map[string]parser.Field) {
 	//TODO MakeForEachReceiver code was edited from MakeReceiversForHandlers,
 	//it may possibly contain redunant checks, loops.
-	receiversProcessed = make(map[string]bool)
-	createReceivers := func(receiverType string, constructorFunc *parser.Function) {
-		receiversProcessed[receiverType] = true
-		cb(receiverType, constructorFunc)
+	receiversProcessed = make(map[string]parser.Field)
+	createReceivers := func(receiver parser.Field, constructorFunc *parser.Function) {
+		receiverType := receiver.GetLocalTypeName()
+		receiversProcessed[receiverType] = receiver
+		cb(receiver, constructorFunc)
 	}
 	//Create receivers for each constructor
-	for t, c := range info.Constructors {
-		createReceivers(t, c)
+	for _, c := range info.Constructors {
+		createReceivers(c.Receiver, &c.Function)
 	}
 
 	//Create receivers that does not have constructor
@@ -550,13 +552,14 @@ func MakeForEachReceiver(
 		if !HasReceiver(fn) {
 			return
 		}
-		receiverType := fn.Receiver.GetLocalTypeName()
+		receiver := fn.Receiver
+		receiverType := receiver.GetLocalTypeName()
 		// Skip if receiver already created.
-		if receiversProcessed[receiverType] {
+		if _, ok := receiversProcessed[receiverType]; ok {
 			return
 		}
 		//It will not create constructor call due constructor func is nil
-		createReceivers(receiverType, nil)
+		createReceivers(receiver, nil)
 	})
 
 	return receiversProcessed
@@ -567,15 +570,17 @@ func MakeHandlerWrapperCall(fn *parser.Function, info *PackageInfo, createDep fu
 		if !HasReceiver(fn) {
 			return
 		}
-		constructorFunc := info.GetConstructor(fn.Receiver)
-		receiverVarName := GetReceiverVarName(fn.Receiver.GetLocalTypeName())
-		if constructorFunc == nil || HasTopLevelReceiver(constructorFunc, info) {
+		constructor := info.GetConstructor(fn.Receiver)
+
+		if constructor == nil || HasTopLevelReceiver(&constructor.Function, info) {
 			//Inject receiver to http handler.
+			receiverVarName := GetReceiverVarName(fn.Receiver.GetLocalTypeName())
 			g.Add(createDep(receiverVarName))
 		} else {
-			//Inject dependencies to http handler for non top level receiver.
-			g.Add(getConstructorDeps(constructorFunc, info, func(field parser.Field, g *Group) {
-				g.Add(createDep(GetReceiverVarName(field.GetLocalTypeName())))
+			//Inject dependencies to handler for non top level receiver.
+			g.Add(getConstructorDeps(constructor, info, func(field parser.Field, g *Group) {
+				receiverVarName := GetReceiverVarName(field.GetLocalTypeName())
+				g.Add(createDep(receiverVarName))
 			}))
 		}
 	}
@@ -600,16 +605,18 @@ func MakeOriginalCall(
 	//else just call public package method
 	if HasReceiver(fn) {
 		constructor := info.GetConstructor(fn.Receiver)
-		receiverVarName := GetReceiverVarName(fn.Receiver.GetLocalTypeName())
-		if constructor != nil && !HasTopLevelReceiver(constructor, info) {
-			g.Id(receiverVarName).Op(":=").Op("&").Add(createTypeFromArg(fn.Receiver, info)).Block()
+		receiverType := fn.Receiver.GetLocalTypeName()
+		//TODO replace recId with generated name
+		recId := GetReceiverVarName(receiverType)
+		if constructor != nil && !HasTopLevelReceiver(&constructor.Function, info) {
+			g.Id(recId).Op(":=").New(Qual(info.GetServicePath(), receiverType))
 
 			constructorCall := makeCallWithMiddleware(constructor, info, middlewares)
-			errGuard(g, List(Id(receiverVarName), Err()).Op("=").
-				Qual(info.GetServicePath(), constructor.Name).CallFunc(constructorCall),
+			errGuard(g, List(Id(recId), Err()).Op("=").
+				Qual(info.GetServicePath(), constructor.Function.Name).CallFunc(constructorCall),
 			)
 		}
-		injectOriginalMethodCall(g, fn, Id(receiverVarName).Dot(fn.Name))
+		injectOriginalMethodCall(g, fn, Id(recId).Dot(fn.Name))
 	} else {
 		injectOriginalMethodCall(g, fn, Qual(info.GetServicePath(), fn.Name))
 	}
@@ -627,12 +634,12 @@ func MakeHandlerWrapper(
 			return
 		}
 		receiverVarName := GetReceiverVarName(fn.Receiver.GetLocalTypeName())
-		constructorFunc := info.GetConstructor(fn.Receiver)
-		if constructorFunc == nil || HasTopLevelReceiver(constructorFunc, info) {
+		constructor := info.GetConstructor(fn.Receiver)
+		if constructor == nil || HasTopLevelReceiver(&constructor.Function, info) {
 			_, _, recLocal := fn.Receiver.GetTypeParts()
 			g.Id(receiverVarName).Op("*").Qual(info.GetServicePath(), recLocal)
 		} else {
-			g.Add(getConstructorDepsSignature(constructorFunc, info))
+			g.Add(getConstructorDepsSignature(constructor, info))
 		}
 	}
 
@@ -649,8 +656,8 @@ func CreateCombinedHandlerArgs(fn *parser.Function, info *PackageInfo) []parser.
 		return arguments
 	}
 	cons := info.GetConstructor(fn.Receiver)
-	if cons != nil && !HasTopLevelReceiver(cons, info) {
-		for _, arg := range cons.Arguments {
+	if cons != nil && !HasTopLevelReceiver(&cons.Function, info) {
+		for _, arg := range cons.Function.Arguments {
 			//Don't include heplers
 			if info.IsReceiverType(arg) || arg.Name == "getHeader" || arg.Name == "getEnv" {
 				continue
