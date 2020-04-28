@@ -153,7 +153,7 @@ func (p *Parser) GetPackageName() string {
 }
 
 //GetFunctions returns exported functions from package
-func (p *Parser) GetFunctions() (functions []*Function) {
+func (p *Parser) GetFunctions() (functions []Function) {
 	addFunc := func(f *types.Func) {
 		if !f.Exported() {
 			return
@@ -167,7 +167,7 @@ func (p *Parser) GetFunctions() (functions []*Function) {
 			return
 		}
 
-		function := &Function{
+		function := Function{
 			Name:        f.Name(),
 			Arguments:   args,
 			Results:     results,

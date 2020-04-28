@@ -38,7 +38,7 @@ func NewMainModule(p *parser.Parser, deps []Module) Module {
 }
 
 type PackageInfo struct {
-	Functions     []*parser.Function
+	Functions     []parser.Function
 	Constructors  map[string]*TypeConstructor
 	PackageName   string
 	IsInitService bool
@@ -70,7 +70,7 @@ func (info PackageInfo) GetConstructor(field parser.Field) *TypeConstructor {
 func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
 	functions := p.GetFunctions()
 
-	var fns []*parser.Function
+	var fns []parser.Function
 	for _, fn := range functions {
 		if name := fn.Name; name == "InitService" || name == "StopService" {
 			continue
@@ -95,7 +95,7 @@ func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
 
 		receiver, ok := isConventionalConstructor(fn)
 		if ok {
-			info.Constructors[receiver.GetLocalTypeName()] = NewTypeConstructor(*fn, receiver)
+			info.Constructors[receiver.GetLocalTypeName()] = NewTypeConstructor(fn, receiver)
 		}
 	}
 
