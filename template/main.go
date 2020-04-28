@@ -39,7 +39,7 @@ func NewMainModule(p *parser.Parser, deps []Module) Module {
 
 type PackageInfo struct {
 	Functions     []parser.Function
-	Constructors  map[string]*TypeConstructor
+	Constructors  map[string]Constructor
 	PackageName   string
 	IsInitService bool
 	IsStopService bool
@@ -59,12 +59,15 @@ func (info *PackageInfo) SetServicePath(path string) {
 	info.servicePath = path
 }
 
+//TODO check receiver taht does not have constructors
 func (info PackageInfo) IsReceiverType(field parser.Field) bool {
-	return info.GetConstructor(field) != nil
+	_, ok := info.GetConstructor(field)
+	return ok
 }
 
-func (info PackageInfo) GetConstructor(field parser.Field) *TypeConstructor {
-	return info.Constructors[field.GetLocalTypeName()]
+func (info PackageInfo) GetConstructor(field parser.Field) (constructor Constructor, ok bool) {
+	constructor, ok = info.Constructors[field.GetLocalTypeName()]
+	return
 }
 
 func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
@@ -81,7 +84,7 @@ func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
 	info := PackageInfo{
 		Functions:    fns,
 		Service:      p.Service,
-		Constructors: make(map[string]*TypeConstructor),
+		Constructors: make(map[string]Constructor),
 		PackageName:  p.GetPackageName(),
 	}
 
@@ -95,7 +98,7 @@ func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
 
 		receiver, ok := isConventionalConstructor(fn)
 		if ok {
-			info.Constructors[receiver.GetLocalTypeName()] = NewTypeConstructor(fn, receiver)
+			info.Constructors[receiver.GetLocalTypeName()] = *NewTypeConstructor(fn, receiver)
 		}
 	}
 
@@ -106,14 +109,26 @@ func createErrLog(msg string) *Statement {
 	return Qual("log", "Printf").Call(List(Lit("ERR %s: %s"), Lit(msg), Err()))
 }
 
-type TypeConstructor struct {
+type Constructor struct {
 	Function parser.Function
 	Receiver parser.Field
 }
 
-func NewTypeConstructor(fn parser.Function, rec parser.Field) (constructor *TypeConstructor) {
-	return &TypeConstructor{
+func NewTypeConstructor(fn parser.Function, rec parser.Field) (constructor *Constructor) {
+	return &Constructor{
 		Function: fn,
 		Receiver: rec,
+	}
+}
+
+type OptionalConstructor = func(func(Constructor), func())
+
+func NewOptionalConstructor(constructors ...Constructor) OptionalConstructor {
+	return func(constructor func(Constructor), empty func()) {
+		if len(constructors) > 0 {
+			constructor(constructors[0])
+		} else {
+			empty()
+		}
 	}
 }
