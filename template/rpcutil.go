@@ -17,7 +17,7 @@ func MakeStartRPCServer(
 		receiversCreated := MakeReceiversForHandlers(info, g)
 
 		resourceName := GetResourceName(info)
-		resourceInstance := "Instance__" + resourceName
+		resourceInstance := "Instance___" + resourceName
 
 		f.Type().Id(resourceName).StructFunc(func(g *Group) {
 			for receiverType := range receiversCreated {

@@ -201,7 +201,7 @@ func resultsFromArgs(args []Field) (results ResultFields, err error) {
 		return
 	}
 	last := args[length-1]
-	if last.GetLocalTypeName() != "error" {
+	if last.TypeName() != "error" {
 		err = errors.New("method should have (err error) return type at last position")
 		return
 	}
@@ -223,8 +223,8 @@ func extractArgsList(list *types.Tuple) (args []Field) {
 
 		field := NewField(v)
 
-		if field.Name == "" {
-			field.Name = fmt.Sprintf("arg%d", count)
+		if field.name == "" {
+			field.name = fmt.Sprintf("arg%d", count)
 		}
 
 		args = append(args, field)
@@ -238,7 +238,7 @@ func NewField(v *types.Var) Field {
 		return Field{}
 	}
 	return Field{
-		Name: v.Name(),
+		name: v.Name(),
 		Var:  v,
 		Type: Type{v.Type()},
 	}

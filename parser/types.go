@@ -31,8 +31,20 @@ type TypeSpec struct {
 	Fields []Field
 }
 
+type StructType struct {
+	Name   string
+	Fields []Field
+}
+
+func NewStructType(name string, fields []Field) StructType {
+	return StructType{
+		Name:   name,
+		Fields: fields,
+	}
+}
+
 type Field struct {
-	Name string
+	name string
 	Var  *types.Var
 	Type
 }
@@ -42,39 +54,35 @@ func (field Field) IsDefined() bool {
 	return field.Var != nil
 }
 
+func (field Field) Name() string {
+	return field.name
+}
+
 type Type struct {
 	typ types.Type
 }
 
-func (t Type) TypeString() string {
-	return t.typ.String()
-}
-
-func (t Type) GetLocalTypeName() string {
-	arr := strings.Split(t.TypeString(), t.fullPkgPath()+".")
+func (t Type) TypeName() string {
+	arr := strings.Split(t.typ.String(), t.fullPkgPath()+".")
 	return arr[len(arr)-1]
 }
 
-func (t Type) PkgPath() string {
-	return strings.TrimPrefix(
+func (t Type) TypeParts() (prefix, path, local string) {
+	fullPath := t.fullPkgPath()
+	typeString := t.typ.String()
+
+	local = t.TypeName()
+	prefix = strings.TrimSuffix(typeString, fullPath+"."+local)
+	path = strings.TrimPrefix(
 		t.fullPkgPath(),
 		build.Default.GOPATH+"/src/",
 	)
+
+	return
 }
 
 func (t Type) fullPkgPath() string {
 	return traverseType(t.typ)
-}
-
-func (t Type) GetTypeParts() (prefix, path, local string) {
-	fullPath := t.fullPkgPath()
-	typeString := t.TypeString()
-
-	local = t.GetLocalTypeName()
-	prefix = strings.TrimSuffix(typeString, fullPath+"."+local)
-	path = t.PkgPath()
-
-	return
 }
 
 func traverseType(typ types.Type) (path string) {

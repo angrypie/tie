@@ -66,7 +66,7 @@ func (info PackageInfo) IsReceiverType(field parser.Field) bool {
 }
 
 func (info PackageInfo) GetConstructor(field parser.Field) (constructor Constructor, ok bool) {
-	constructor, ok = info.Constructors[field.GetLocalTypeName()]
+	constructor, ok = info.Constructors[field.TypeName()]
 	return
 }
 
@@ -98,7 +98,7 @@ func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
 
 		receiver, ok := isConventionalConstructor(fn)
 		if ok {
-			info.Constructors[receiver.GetLocalTypeName()] = *NewTypeConstructor(fn, receiver)
+			info.Constructors[receiver.TypeName()] = *NewTypeConstructor(fn, receiver)
 		}
 	}
 
@@ -131,4 +131,32 @@ func NewOptionalConstructor(constructors ...Constructor) OptionalConstructor {
 			empty()
 		}
 	}
+}
+
+type Field struct {
+	name     string
+	typeName string
+}
+
+func NewField(name, typeName string) Field {
+	return Field{name, typeName}
+}
+
+func (field Field) Name() string {
+	return field.name
+}
+
+func (field Field) TypeName() string {
+	return field.typeName
+}
+
+func (field Field) TypeParts() (prefix, path, local string) {
+	return "", "", field.typeName
+}
+
+func fieldsFromParser(fields []parser.Field) (res []types.Field) {
+	for _, arg := range fields {
+		res = append(res, arg)
+	}
+	return
 }
