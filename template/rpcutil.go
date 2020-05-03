@@ -62,3 +62,81 @@ func GetRpcHandlerArgsList(request, response string) *Statement {
 func GetResourceName(info *PackageInfo) string {
 	return "Resource__" + info.PackageName
 }
+
+type ClientMethodBody = func(ids ClientMethodIds) *Statement
+
+type ClientMethodIds struct {
+	Request, Response, Method, Resource, Err string
+}
+
+func ClientMethods(info *PackageInfo, body ClientMethodBody) *Statement {
+	stmt := Comment("Client Methods").Line()
+	ForEachFunction(info, true, func(fn parser.Function) {
+		stmt.Add(ClientMethod(fn, info, body))
+	})
+
+	return stmt
+}
+
+func ClientMethod(fn parser.Function, info *PackageInfo, body ClientMethodBody) *Statement {
+	args := fn.Arguments
+
+	baseBody := func(g *Group) {
+		rpcMethodName, requestType, responseType := GetMethodTypes(fn)
+		request, response := ID("request"), ID("response")
+
+		g.Id(response).Op(":=").New(Id(responseType))
+		g.Id(request).Op(":=").New(Id(requestType))
+
+		//Bind method args data to request
+		if len(args) != 0 {
+			g.ListFunc(CreateArgsListFunc(args, request)).Op("=").
+				ListFunc(CreateArgsListFunc(args))
+		}
+		//Bind receiver data to request
+		if HasReceiver(fn) {
+			constructor, ok := info.GetConstructor(fn.Receiver)
+			if ok && !HasTopLevelReceiver(constructor.Function, info) {
+				g.Id(request).Dot(RequestReceiverKey).Op("=").Id("resource")
+			}
+		}
+
+		resourceName := GetResourceName(info)
+		errId := ID("err")
+		g.Var().Id(errId).Error()
+		g.Id("_").Op("=").Id(errId)
+
+		//Add user body
+		g.Add(body(ClientMethodIds{
+			Method:   rpcMethodName,
+			Resource: resourceName,
+			Err:      errId,
+			Request:  request,
+			Response: response,
+		}))
+
+		AddIfErrorGuard(g, AssignErrToResults(Id(errId), fn.Results), errId, nil)
+
+		g.Return(ListFunc(CreateArgsListFunc(fn.Results.List(), response)))
+	}
+
+	return Func().ListFunc(func(g *Group) {
+		if HasReceiver(fn) {
+			g.Params(Id("resource").Id(fn.Receiver.TypeName()))
+			return
+		}
+	}).Id(fn.Name).
+		ParamsFunc(CreateSignatureFromArgs(args, info)).
+		ParamsFunc(CreateSignatureFromArgs(fn.Results.List(), info)).
+		BlockFunc(baseBody).Line()
+}
+
+func TemplateClient(info *PackageInfo, body ClientMethodBody) *Statement {
+	code := Comment("Naive client template").Line()
+	code.Add(
+		CreateReqRespTypes(info),
+		CreateTypeAliases(info),
+		ClientMethods(info, body),
+	)
+	return code
+}
