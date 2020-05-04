@@ -5,10 +5,15 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
+type StartRPCServerCb = func(g *Group, resource, instance string)
+
 func MakeStartRPCServer(
-	info *PackageInfo, main *Group, f *File,
-	cb func(g *Group, resource, instance string),
-) {
+	info *PackageInfo, cb StartRPCServerCb,
+) (main, f *Group) {
+	main, f = NewGroup(), NewGroup()
+	main.Comment("MakeStartRPCServer (local)").Line()
+	f.Comment("MakeStartRPCServer (file)").Line()
+
 	//TODO handle thi error
 	main.Err().Op(":=").Id("startServer").Call()
 	main.If(Err().Op("!=").Nil()).Block(Panic(Err()))
@@ -49,6 +54,7 @@ func MakeStartRPCServer(
 		cb(g, resourceName, resourceInstance)
 		g.Return()
 	})
+	return
 }
 
 func GetRpcHandlerArgsList(request, response string) *Statement {
@@ -59,14 +65,64 @@ func GetRpcHandlerArgsList(request, response string) *Statement {
 	)
 }
 
-func GetResourceName(info *PackageInfo) string {
-	return "Resource__" + info.PackageName
+func ServerMethods(info *PackageInfo) *Statement {
+	stmt := Comment("Server Methods").Line()
+	ForEachFunction(info, true, func(fn parser.Function) {
+		body := func() *Statement {
+			code := Comment("ServerMethods->method").Line()
+			middlewares := MiddlewaresMap{"getEnv": Id(GetEnvHelper)}
+			code.BlockFunc(func(g *Group) {
+				MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC(fn))
+			})
+
+			return code
+		}
+
+		_, request, response := GetMethodTypes(fn)
+		wrapper := MakeHandlerWrapper(
+			body, info, fn,
+			GetRpcHandlerArgsList(request, response),
+			Err().Error(),
+		)
+		stmt.Add(wrapper).Line()
+	})
+
+	return stmt
 }
 
-type ClientMethodBody = func(ids ClientMethodIds) *Statement
+func TemplateServer(info *PackageInfo, cb StartRPCServerCb) *Group {
+	file := NewGroup()
+	file.Comment("Naive server template").Line()
 
-type ClientMethodIds struct {
-	Request, Response, Method, Resource, Err string
+	main := Func().Id("Main").Params().BlockFunc(func(main *Group) {
+		local, global := GracefulShutdown(info)
+		main.Add(local)
+		file.Add(global)
+
+		MakeInitService(info, main)
+
+		local, global = MakeStartRPCServer(info, cb)
+		main.Add(local)
+		file.Add(global)
+	})
+
+	file.Add(
+		main,
+		ServerMethods(info),
+		CreateReqRespTypes(info),
+		AddGetEnvHelper(),
+	)
+	return file
+}
+
+func TemplateClient(info *PackageInfo, body ClientMethodBody) *Statement {
+	code := Comment("Naive client template").Line()
+	code.Add(
+		CreateReqRespTypes(info),
+		CreateTypeAliases(info),
+		ClientMethods(info, body),
+	)
+	return code
 }
 
 func ClientMethods(info *PackageInfo, body ClientMethodBody) *Statement {
@@ -76,6 +132,12 @@ func ClientMethods(info *PackageInfo, body ClientMethodBody) *Statement {
 	})
 
 	return stmt
+}
+
+type ClientMethodBody = func(ids ClientMethodIds) *Statement
+
+type ClientMethodIds struct {
+	Request, Response, Method, Resource, Err string
 }
 
 func ClientMethod(fn parser.Function, info *PackageInfo, body ClientMethodBody) *Statement {
@@ -131,12 +193,13 @@ func ClientMethod(fn parser.Function, info *PackageInfo, body ClientMethodBody) 
 		BlockFunc(baseBody).Line()
 }
 
-func TemplateClient(info *PackageInfo, body ClientMethodBody) *Statement {
-	code := Comment("Naive client template").Line()
-	code.Add(
-		CreateReqRespTypes(info),
-		CreateTypeAliases(info),
-		ClientMethods(info, body),
-	)
-	return code
+func ifErrorReturnErrRPC(fn parser.Function) IfErrorGuard {
+	return func(scope *Group, statement *Statement) {
+		AddIfErrorGuard(
+			scope,
+			statement,
+			"err",
+			Err(),
+		)
+	}
 }
