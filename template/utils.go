@@ -1,7 +1,6 @@
 package template
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/angrypie/tie/parser"
@@ -9,13 +8,16 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
+//getConstructorDepsSignature creates constructor signature list.
 func getConstructorDepsSignature(constructor Constructor, info *PackageInfo) (code Code) {
 	return getConstructorDeps(constructor, info, func(field parser.Field, g *Group) {
 		typeName := field.TypeName()
-		g.Id(GetReceiverVarName(typeName)).Add(createTypeFromArg(field, info))
+		g.Id(GetReceiverVarName(typeName)).Add(createTypeFromField(field, info))
 	})
 }
 
+//getConstructorDeps creates list that contain constructor args, except function
+//and receiver types. createDep is used to construct single list element.
 func getConstructorDeps(
 	constructor Constructor,
 	info *PackageInfo,
@@ -34,20 +36,22 @@ func getConstructorDeps(
 	})
 }
 
+//CreateArgsListFunc creates list from Fields (see CreateArgListFunc).
 func CreateArgsListFunc(args []parser.Field, params ...string) func(*Group) {
 	return CreateArgsList(args, func(arg *Statement, field parser.Field) *Statement {
 		return arg
 	}, params...)
 }
 
+//CreateSignatureFromArgs creates signature from Fields (see CreateArgListFunc).
 func CreateSignatureFromArgs(args []parser.Field, info *PackageInfo, params ...string) func(*Group) {
 	return CreateArgsList(args, func(arg *Statement, field parser.Field) *Statement {
-		return Id(field.Name()).Add(createTypeFromArg(field, info))
+		return Id(field.Name()).Add(createTypeFromField(field, info))
 	}, params...)
 }
 
 //CreateArgsList creates list from parser.Field array.
-//Transform function are used to modify each element list.
+//Transform function is used to modify each element list.
 //Optional param 1 is used to specify prefix for each element.
 //Optional param 2 is used to specify allowed argument types (format: type1,type2,).
 func CreateArgsList(
@@ -83,6 +87,7 @@ func CreateArgsList(
 	}
 }
 
+//CreateTypeAliases creates aliases to types that found in functions signatures.
 func CreateTypeAliases(info *PackageInfo, f *File) {
 	f.Comment("Type aliases")
 	done := make(map[string]bool)
@@ -101,6 +106,7 @@ func CreateTypeAliases(info *PackageInfo, f *File) {
 	})
 }
 
+//CreateReqRespTypes creates request response types for each method.
 func CreateReqRespTypes(info *PackageInfo, f *File) {
 	f.Comment("Request/Response types")
 	cb := func(receiver parser.Field, constructor OptionalConstructor) {
@@ -121,6 +127,8 @@ func CreateReqRespTypes(info *PackageInfo, f *File) {
 	})
 }
 
+//TODO replace to to Struct type
+//TypeDeclFormFields creates type declaration from []types.Field
 func TypeDeclFormFields(name string, args []types.Field, info *PackageInfo) Code {
 	return Type().Id(name).StructFunc(func(g *Group) {
 		for _, arg := range args {
@@ -128,7 +136,7 @@ func TypeDeclFormFields(name string, args []types.Field, info *PackageInfo) Code
 			if isArgNameAreDTO(name) {
 				name = ""
 			}
-			field := Id(strings.Title(name)).Add(createTypeFromArg(arg, info))
+			field := Id(strings.Title(name)).Add(createTypeFromField(arg, info))
 			jsonTag := strings.ToLower(name)
 			if arg.TypeName() == "error" {
 				jsonTag = "-"
@@ -153,7 +161,7 @@ func ClientReceiverType(receiver parser.Field, constructor OptionalConstructor, 
 
 		typeDecl = Type().Id(receiverType).StructFunc(func(g *Group) {
 			for _, arg := range filterHelperArgs(args, info) {
-				field := Id(strings.Title(arg.Name())).Add(createTypeFromArg(arg, info))
+				field := Id(strings.Title(arg.Name())).Add(createTypeFromField(arg, info))
 				g.Add(field)
 			}
 		})
@@ -164,7 +172,7 @@ func ClientReceiverType(receiver parser.Field, constructor OptionalConstructor, 
 					prefix, _, local := field.TypeParts()
 					return Id(field.Name()).Id(prefix + local)
 				}
-				return Id(field.Name()).Add(createTypeFromArg(field, info))
+				return Id(field.Name()).Add(createTypeFromField(field, info))
 			})
 		}
 
@@ -188,7 +196,8 @@ func ClientReceiverType(receiver parser.Field, constructor OptionalConstructor, 
 	return
 }
 
-func createTypeFromArg(field types.Field, info *PackageInfo) Code {
+//createTypeFromField create qualified type from types.Field.
+func createTypeFromField(field types.Field, info *PackageInfo) Code {
 	prefix, path, local := field.TypeParts()
 	if path == "" {
 		return Op(local)
@@ -199,6 +208,7 @@ func createTypeFromArg(field types.Field, info *PackageInfo) Code {
 	return Op(prefix).Qual(path, local)
 }
 
+//injectOriginalMethodCall injects original method call.
 func injectOriginalMethodCall(g *Group, fn parser.Function, method Code) {
 	g.ListFunc(CreateArgsListFunc(fn.Results.List(), "response")).
 		Op("=").Add(method).Call(ListFunc(CreateArgsListFunc(fn.Arguments, "request")))
@@ -217,10 +227,13 @@ func MakeInitService(info *PackageInfo, main *Group) {
 	)
 }
 
+//TODO
+//makeWaitGuard creates guard that blocks current thread
 func makeWaitGuard(main *Group) {
 	main.Op("<-").Make(Chan().Bool())
 }
 
+//GracefulShutdown calls Stop methods on receivers before program termination.
 func GracefulShutdown(info *PackageInfo, g *Group, f *File) {
 	g.Comment("GracefulShutdown(local scope)").Line()
 	f.Comment("GracefulShutdown (file)").Line()
@@ -257,8 +270,10 @@ func GracefulShutdown(info *PackageInfo, g *Group, f *File) {
 	return
 }
 
+//GetEnvHelper global identifier for getEnv helper function.
 const GetEnvHelper = "getEnvHelper"
 
+//AddGetEnvHelper creates heper function to get environment variable.
 func AddGetEnvHelper(f *File) {
 	f.Func().Id(GetEnvHelper).Params(Id("envName").String()).String().Block(
 		Return(Qual("os", "Getenv").Call(Id("envName"))),
@@ -267,6 +282,7 @@ func AddGetEnvHelper(f *File) {
 
 type IfErrorGuard = func(scope *Group, statement *Statement)
 
+//AddIfErrorGuard adds to scope error check.
 func AddIfErrorGuard(scope *Group, statement *Statement, errId string, code Code) {
 	scope.If(
 		statement,
@@ -285,6 +301,7 @@ func AssignErrToResults(err *Statement, fields parser.ResultFields) (statement *
 	return
 }
 
+//AssignResultsToErr assign response error to err statement.
 func AssignResultsToErr(err *Statement, respId string, fields parser.ResultFields) (statement *Statement) {
 	last := fields.Last
 	if last.TypeName() != "error" {
@@ -295,6 +312,7 @@ func AssignResultsToErr(err *Statement, respId string, fields parser.ResultField
 
 type MiddlewaresMap = map[string]*Statement
 
+//makeCallWithMiddleware injects middlewares to args list for constructor.
 func makeCallWithMiddleware(constructor Constructor, info *PackageInfo, middlewares MiddlewaresMap) func(g *Group) {
 	return CreateArgsList(constructor.Function.Arguments, func(arg *Statement, field parser.Field) *Statement {
 		fieldName := field.Name()
@@ -320,6 +338,7 @@ func makeCallWithMiddleware(constructor Constructor, info *PackageInfo, middlewa
 	})
 }
 
+//makeEmptyValuesMiddlewareCall inject middlewares and empy values to args list for constructor.
 func makeEmptyValuesMiddlewareCall(fn parser.Function, info *PackageInfo, middlewares MiddlewaresMap) func(g *Group) {
 	return CreateArgsList(fn.Arguments, func(arg *Statement, field parser.Field) *Statement {
 		fieldName := field.Name()
@@ -355,6 +374,7 @@ func makeEmptyValuesMiddlewareCall(fn parser.Function, info *PackageInfo, middle
 
 const rndport = "github.com/angrypie/rndport"
 
+//MakeStartServerInit creates port and address initialization (from env or random).
 func MakeStartServerInit(info *PackageInfo, g *Group) {
 	portStr := info.Service.Port
 
@@ -422,6 +442,7 @@ func MakeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map
 	return receiversCreated
 }
 
+//MakeHandlerWrapperCall creates args list for HandlerWrapper.
 func MakeHandlerWrapperCall(fn parser.Function, info *PackageInfo, createDep func(string) Code) func(*Group) {
 	return func(g *Group) {
 		if !HasReceiver(fn) {
@@ -441,16 +462,6 @@ func MakeHandlerWrapperCall(fn parser.Function, info *PackageInfo, createDep fun
 			}))
 		}
 	}
-}
-
-func MakeHandlers(
-	info *PackageInfo, f *File,
-	makeHandler func(*PackageInfo, parser.Function, *File),
-) {
-	f.Comment(fmt.Sprintf("API handler methods")).Line()
-	ForEachFunction(info, true, func(fn parser.Function) {
-		makeHandler(info, fn, f)
-	})
 }
 
 //TODO accept Statement insteal Group
@@ -481,6 +492,7 @@ func MakeOriginalCall(
 	errGuard(g, AssignResultsToErr(Err(), "response", fn.Results))
 }
 
+//HandlerWrapper creates method wrapper to inject dependencies (top level receiver).
 func MakeHandlerWrapper(
 	f *File, handlerBody func(g *Group), info *PackageInfo, fn parser.Function,
 	args, returns *Statement,

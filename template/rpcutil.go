@@ -5,8 +5,10 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
+//StartRPCServerCb is used to insert specific code to server init template.
 type StartRPCServerCb = func(g *Group, resource, instance string)
 
+//MakeStartRPCServer creates server initialization method.
 func MakeStartRPCServer(info *PackageInfo, cb StartRPCServerCb, main *Group, f *File) {
 	main.Comment("MakeStartRPCServer (local)").Line()
 	f.Comment("MakeStartRPCServer (file)").Line()
@@ -54,6 +56,7 @@ func MakeStartRPCServer(info *PackageInfo, cb StartRPCServerCb, main *Group, f *
 	return
 }
 
+//GetRpcHandlerArgsList creates args list for rpc handler wrapper.
 func GetRpcHandlerArgsList(request, response string) *Statement {
 	return List(
 		Id("ctx").Qual("context", "Context"),
@@ -62,12 +65,13 @@ func GetRpcHandlerArgsList(request, response string) *Statement {
 	)
 }
 
+//ServerMethods creates server methods for each service function.
 func ServerMethods(info *PackageInfo, f *File) {
 	f.Comment("Server Methods").Line()
 	ForEachFunction(info, true, func(fn parser.Function) {
 		body := func(g *Group) {
 			middlewares := MiddlewaresMap{"getEnv": Id(GetEnvHelper)}
-			MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC(fn))
+			MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC())
 		}
 
 		_, request, response := GetMethodTypes(fn)
@@ -79,6 +83,7 @@ func ServerMethods(info *PackageInfo, f *File) {
 	})
 }
 
+//TemplateServer creates template module for RPC server.
 func TemplateServer(info *PackageInfo, f *File, cb StartRPCServerCb) {
 	f.Func().Id("Main").Params().BlockFunc(func(main *Group) {
 		GracefulShutdown(info, main, f)
@@ -91,12 +96,14 @@ func TemplateServer(info *PackageInfo, f *File, cb StartRPCServerCb) {
 	AddGetEnvHelper(f)
 }
 
+//TemplateServer creates template module for RPC client.
 func TemplateClient(info *PackageInfo, f *File, body ClientMethodBody) {
 	CreateReqRespTypes(info, f)
 	CreateTypeAliases(info, f)
 	clientMethods(info, body, f)
 }
 
+//clientMethods creates client method for each service function.
 func clientMethods(info *PackageInfo, body ClientMethodBody, f *File) {
 	f.Comment("Client Methods").Line()
 	ForEachFunction(info, true, func(fn parser.Function) {
@@ -104,12 +111,19 @@ func clientMethods(info *PackageInfo, body ClientMethodBody, f *File) {
 	})
 }
 
+//ClientMethodBody is used to insert specific code to client method template.
 type ClientMethodBody = func(ids ClientMethodIds, g *Group)
 
+//ClientMethodIds contains identifiers that available in client method template.
 type ClientMethodIds struct {
-	Request, Response, Method, Resource, Err string
+	Request  string //Request variable identifier
+	Response string //Response valiable identifier
+	Method   string //RPC Method string
+	Resource string //RPC Resource string
+	Err      string //Error variable identifer
 }
 
+//ClientMethod creates client method for given function.
 func ClientMethod(fn parser.Function, info *PackageInfo, body ClientMethodBody, f *File) {
 	args := fn.Arguments
 
@@ -163,7 +177,8 @@ func ClientMethod(fn parser.Function, info *PackageInfo, body ClientMethodBody, 
 		BlockFunc(baseBody).Line()
 }
 
-func ifErrorReturnErrRPC(fn parser.Function) IfErrorGuard {
+//ifErrorReturnErrRPC creates error guard for RPC wrapper function.
+func ifErrorReturnErrRPC() IfErrorGuard {
 	return func(scope *Group, statement *Statement) {
 		AddIfErrorGuard(
 			scope,
