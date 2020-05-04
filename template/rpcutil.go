@@ -7,10 +7,7 @@ import (
 
 type StartRPCServerCb = func(g *Group, resource, instance string)
 
-func MakeStartRPCServer(
-	info *PackageInfo, cb StartRPCServerCb,
-) (main, f *Group) {
-	main, f = NewGroup(), NewGroup()
+func MakeStartRPCServer(info *PackageInfo, cb StartRPCServerCb, main *Group, f *File) {
 	main.Comment("MakeStartRPCServer (local)").Line()
 	f.Comment("MakeStartRPCServer (file)").Line()
 
@@ -65,82 +62,55 @@ func GetRpcHandlerArgsList(request, response string) *Statement {
 	)
 }
 
-func ServerMethods(info *PackageInfo) *Statement {
-	stmt := Comment("Server Methods").Line()
+func ServerMethods(info *PackageInfo, f *File) {
+	f.Comment("Server Methods").Line()
 	ForEachFunction(info, true, func(fn parser.Function) {
-		body := func() *Statement {
-			code := Comment("ServerMethods->method").Line()
+		body := func(g *Group) {
 			middlewares := MiddlewaresMap{"getEnv": Id(GetEnvHelper)}
-			code.BlockFunc(func(g *Group) {
-				MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC(fn))
-			})
-
-			return code
+			MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC(fn))
 		}
 
 		_, request, response := GetMethodTypes(fn)
-		wrapper := MakeHandlerWrapper(
-			body, info, fn,
+		MakeHandlerWrapper(
+			f, body, info, fn,
 			GetRpcHandlerArgsList(request, response),
 			Err().Error(),
 		)
-		stmt.Add(wrapper).Line()
 	})
-
-	return stmt
 }
 
-func TemplateServer(info *PackageInfo, cb StartRPCServerCb) *Group {
-	file := NewGroup()
-	file.Comment("Naive server template").Line()
-
-	main := Func().Id("Main").Params().BlockFunc(func(main *Group) {
-		local, global := GracefulShutdown(info)
-		main.Add(local)
-		file.Add(global)
-
+func TemplateServer(info *PackageInfo, f *File, cb StartRPCServerCb) {
+	f.Func().Id("Main").Params().BlockFunc(func(main *Group) {
+		GracefulShutdown(info, main, f)
 		MakeInitService(info, main)
-
-		local, global = MakeStartRPCServer(info, cb)
-		main.Add(local)
-		file.Add(global)
+		MakeStartRPCServer(info, cb, main, f)
 	})
 
-	file.Add(
-		main,
-		ServerMethods(info),
-		CreateReqRespTypes(info),
-		AddGetEnvHelper(),
-	)
-	return file
+	ServerMethods(info, f)
+	CreateReqRespTypes(info, f)
+	AddGetEnvHelper(f)
 }
 
-func TemplateClient(info *PackageInfo, body ClientMethodBody) *Statement {
-	code := Comment("Naive client template").Line()
-	code.Add(
-		CreateReqRespTypes(info),
-		CreateTypeAliases(info),
-		ClientMethods(info, body),
-	)
-	return code
+func TemplateClient(info *PackageInfo, f *File, body ClientMethodBody) {
+	CreateReqRespTypes(info, f)
+	CreateTypeAliases(info, f)
+	clientMethods(info, body, f)
 }
 
-func ClientMethods(info *PackageInfo, body ClientMethodBody) *Statement {
-	stmt := Comment("Client Methods").Line()
+func clientMethods(info *PackageInfo, body ClientMethodBody, f *File) {
+	f.Comment("Client Methods").Line()
 	ForEachFunction(info, true, func(fn parser.Function) {
-		stmt.Add(ClientMethod(fn, info, body))
+		ClientMethod(fn, info, body, f)
 	})
-
-	return stmt
 }
 
-type ClientMethodBody = func(ids ClientMethodIds) *Statement
+type ClientMethodBody = func(ids ClientMethodIds, g *Group)
 
 type ClientMethodIds struct {
 	Request, Response, Method, Resource, Err string
 }
 
-func ClientMethod(fn parser.Function, info *PackageInfo, body ClientMethodBody) *Statement {
+func ClientMethod(fn parser.Function, info *PackageInfo, body ClientMethodBody, f *File) {
 	args := fn.Arguments
 
 	baseBody := func(g *Group) {
@@ -169,20 +139,20 @@ func ClientMethod(fn parser.Function, info *PackageInfo, body ClientMethodBody) 
 		g.Id("_").Op("=").Id(errId)
 
 		//Add user body
-		g.Add(body(ClientMethodIds{
+		body(ClientMethodIds{
 			Method:   rpcMethodName,
 			Resource: resourceName,
 			Err:      errId,
 			Request:  request,
 			Response: response,
-		}))
+		}, g)
 
 		AddIfErrorGuard(g, AssignErrToResults(Id(errId), fn.Results), errId, nil)
 
 		g.Return(ListFunc(CreateArgsListFunc(fn.Results.List(), response)))
 	}
 
-	return Func().ListFunc(func(g *Group) {
+	f.Func().ListFunc(func(g *Group) {
 		if HasReceiver(fn) {
 			g.Params(Id("resource").Id(fn.Receiver.TypeName()))
 			return

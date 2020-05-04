@@ -83,8 +83,8 @@ func CreateArgsList(
 	}
 }
 
-func CreateTypeAliases(info *PackageInfo) Code {
-	code := Comment("Type aliases").Line()
+func CreateTypeAliases(info *PackageInfo, f *File) {
+	f.Comment("Type aliases")
 	done := make(map[string]bool)
 	ForEachFunction(info, true, func(fn parser.Function) {
 		fields := append(fn.Arguments, fn.Results.List()...)
@@ -95,20 +95,17 @@ func CreateTypeAliases(info *PackageInfo) Code {
 				continue
 			}
 			done[local] = true
-			code.Type().Id(local).Op("=").Qual(info.GetServicePath(), local)
-			code.Line()
+			f.Type().Id(local).Op("=").Qual(info.GetServicePath(), local)
+			f.Line()
 		}
 	})
-	return code
 }
 
-func CreateReqRespTypes(info *PackageInfo) Code {
-	code := Comment("Request/Response types").Line()
-
-	code.Comment("Client Receiver Types and constructors").Line()
+func CreateReqRespTypes(info *PackageInfo, f *File) {
+	f.Comment("Request/Response types")
 	cb := func(receiver parser.Field, constructor OptionalConstructor) {
 		t, c := ClientReceiverType(receiver, constructor, info)
-		code.Add(t).Line().Add(c).Line()
+		f.Add(t).Line().Add(c).Line()
 	}
 	MakeForEachReceiver(info, cb)
 
@@ -117,12 +114,11 @@ func CreateReqRespTypes(info *PackageInfo) Code {
 		results := fieldsFromParser(fn.Results.List())
 
 		_, reqName, respName := GetMethodTypes(fn)
-		code.Add(TypeDeclFormFields(reqName, arguments, info))
-		code.Line()
-		code.Add(TypeDeclFormFields(respName, results, info))
-		code.Line()
+		f.Add(TypeDeclFormFields(reqName, arguments, info))
+		f.Line()
+		f.Add(TypeDeclFormFields(respName, results, info))
+		f.Line()
 	})
-	return code
 }
 
 func TypeDeclFormFields(name string, args []types.Field, info *PackageInfo) Code {
@@ -225,8 +221,7 @@ func makeWaitGuard(main *Group) {
 	main.Op("<-").Make(Chan().Bool())
 }
 
-func GracefulShutdown(info *PackageInfo) (g, f *Group) {
-	g, f = NewGroup(), NewGroup()
+func GracefulShutdown(info *PackageInfo, g *Group, f *File) {
 	g.Comment("GracefulShutdown(local scope)").Line()
 	f.Comment("GracefulShutdown (file)").Line()
 
@@ -264,8 +259,8 @@ func GracefulShutdown(info *PackageInfo) (g, f *Group) {
 
 const GetEnvHelper = "getEnvHelper"
 
-func AddGetEnvHelper() *Statement {
-	return Func().Id(GetEnvHelper).Params(Id("envName").String()).String().Block(
+func AddGetEnvHelper(f *File) {
+	f.Func().Id(GetEnvHelper).Params(Id("envName").String()).String().Block(
 		Return(Qual("os", "Getenv").Call(Id("envName"))),
 	)
 }
@@ -325,7 +320,7 @@ func makeCallWithMiddleware(constructor Constructor, info *PackageInfo, middlewa
 	})
 }
 
-func makeEmtyValuesMiddlewareCall(fn parser.Function, info *PackageInfo, middlewares MiddlewaresMap) func(g *Group) {
+func makeEmptyValuesMiddlewareCall(fn parser.Function, info *PackageInfo, middlewares MiddlewaresMap) func(g *Group) {
 	return CreateArgsList(fn.Arguments, func(arg *Statement, field parser.Field) *Statement {
 		fieldName := field.Name()
 		//TODO CHECK
@@ -403,7 +398,7 @@ func MakeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map
 					return
 				}
 				fn := c.Function
-				constructorCall := makeEmtyValuesMiddlewareCall(fn, info, MiddlewaresMap{"getEnv": Id(GetEnvHelper)})
+				constructorCall := makeEmptyValuesMiddlewareCall(fn, info, MiddlewaresMap{"getEnv": Id(GetEnvHelper)})
 				g.List(Id(recId), Err()).Op(":=").Qual(info.GetServicePath(), fn.Name).CallFunc(constructorCall)
 				AddIfErrorGuard(g, nil, "err", nil)
 
@@ -450,11 +445,11 @@ func MakeHandlerWrapperCall(fn parser.Function, info *PackageInfo, createDep fun
 
 func MakeHandlers(
 	info *PackageInfo, f *File,
-	makeHandler func(info *PackageInfo, fn parser.Function, file *Group),
+	makeHandler func(*PackageInfo, parser.Function, *File),
 ) {
 	f.Comment(fmt.Sprintf("API handler methods")).Line()
 	ForEachFunction(info, true, func(fn parser.Function) {
-		makeHandler(info, fn, f.Group)
+		makeHandler(info, fn, f)
 	})
 }
 
@@ -487,9 +482,9 @@ func MakeOriginalCall(
 }
 
 func MakeHandlerWrapper(
-	handlerBody func() *Statement, info *PackageInfo, fn parser.Function,
+	f *File, handlerBody func(g *Group), info *PackageInfo, fn parser.Function,
 	args, returns *Statement,
-) *Statement {
+) {
 	handler, _, _ := GetMethodTypes(fn)
 
 	wrapperParams := func(g *Group) {
@@ -506,10 +501,10 @@ func MakeHandlerWrapper(
 		}
 	}
 
-	return Func().Id(handler).ParamsFunc(wrapperParams).Func().Params(args).Params(returns).Block(
-		Return(Func().Params(args).Params(returns).Block(
-			handlerBody(),
-			Return(Nil()),
-		)),
+	f.Func().Id(handler).ParamsFunc(wrapperParams).Func().Params(args).Params(returns).Block(
+		Return(Func().Params(args).Params(returns).BlockFunc(func(g *Group) {
+			handlerBody(g)
+			g.Return(Nil())
+		})),
 	).Line()
 }
