@@ -10,6 +10,7 @@ import (
 	"github.com/angrypie/tie-modules/micro"
 	"github.com/angrypie/tie/parser"
 	"github.com/angrypie/tie/template"
+	protomod "github.com/angrypie/tie/template/protobuf"
 	"github.com/angrypie/tie/types"
 	"github.com/spf13/afero"
 )
@@ -71,6 +72,7 @@ func (upgrader *Upgrader) GenerateModules(services []string) (err error) {
 			modules = append(modules, httpmod.NewModule(p))
 		case "micro":
 			modules = append(modules, micro.NewModule(p, services))
+			modules = append(modules, protomod.NewModule(p))
 		default:
 			modules = append(modules, micro.NewModule(p, services))
 		}
