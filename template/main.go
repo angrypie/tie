@@ -4,9 +4,13 @@ import (
 	"fmt"
 
 	"github.com/angrypie/tie/parser"
+	"github.com/angrypie/tie/template/modutils"
 	"github.com/angrypie/tie/types"
 	. "github.com/dave/jennifer/jen"
 )
+
+type Package = modutils.Package
+type Module = modutils.Module
 
 func GetMainPackage(packagePath string, modules []string) *Package {
 	f := NewFile("main")
@@ -19,10 +23,7 @@ func GetMainPackage(packagePath string, modules []string) *Package {
 		makeWaitGuard(g)
 	})
 
-	return &Package{
-		Name:  "main",
-		Files: [][]byte{[]byte(f.GoString())},
-	}
+	return modutils.NewPackage("main", "main.go", f.GoString())
 }
 
 func NewMainModule(p *parser.Parser, deps []Module) Module {
@@ -34,7 +35,7 @@ func NewMainModule(p *parser.Parser, deps []Module) Module {
 	generator := func(p *parser.Parser) *Package {
 		return GetMainPackage(p.Service.Name, modules)
 	}
-	return NewStandartModule("tie_modules", generator, p, deps)
+	return modutils.NewStandartModule("tie_modules", generator, p, deps)
 }
 
 type PackageInfo struct {
