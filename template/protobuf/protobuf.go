@@ -3,16 +3,17 @@ package protobuf
 import (
 	"github.com/angrypie/tie/parser"
 	"github.com/angrypie/tie/template"
+	"github.com/angrypie/tie/template/modutils"
 	protogen "github.com/muxinc/protogen/proto3"
 )
 
 const moduleId = "protobuf"
 
-func NewModule(p *parser.Parser) template.Module {
-	return template.NewStandartModule(moduleId, Generate, p, nil)
+func NewModule(p *parser.Parser) modutils.Module {
+	return modutils.NewStandartModule(moduleId, Generate, p, nil)
 }
 
-func Generate(p *parser.Parser) (pkg *template.Package) {
+func Generate(p *parser.Parser) (pkg *modutils.Package) {
 	info := template.NewPackageInfoFromParser(p)
 	//TODO all modules needs to create upgraded subpackage to make ServicePath reusable,
 
@@ -23,10 +24,8 @@ func Generate(p *parser.Parser) (pkg *template.Package) {
 		panic(err)
 	}
 
-	return &template.Package{
-		Name:  moduleId,
-		Files: [][]byte{[]byte(fileStr)},
-	}
+	return modutils.NewPackage(moduleId, "schema.proto", fileStr)
+
 }
 
 func generateProtoSpec(info *template.PackageInfo) (spec protogen.Spec) {

@@ -10,7 +10,7 @@ import (
 	"github.com/angrypie/tie-modules/micro"
 	"github.com/angrypie/tie/parser"
 	"github.com/angrypie/tie/template"
-	protomod "github.com/angrypie/tie/template/protobuf"
+	"github.com/angrypie/tie/template/modutils"
 	"github.com/angrypie/tie/types"
 	"github.com/spf13/afero"
 )
@@ -72,7 +72,6 @@ func (upgrader *Upgrader) GenerateModules(services []string) (err error) {
 			modules = append(modules, httpmod.NewModule(p))
 		case "micro":
 			modules = append(modules, micro.NewModule(p, services))
-			modules = append(modules, protomod.NewModule(p))
 		default:
 			modules = append(modules, micro.NewModule(p, services))
 		}
@@ -80,7 +79,7 @@ func (upgrader *Upgrader) GenerateModules(services []string) (err error) {
 
 	module := template.NewMainModule(p, modules)
 
-	err = template.TraverseModules(module, []string{""},
+	err = modutils.TraverseModules(module, []string{""},
 		func(m template.Module, modulePath []string) (err error) {
 			fsPath := path.Join(servicePath, strings.Join(modulePath, "/"))
 			pkg := m.Generate()
@@ -99,7 +98,7 @@ func (upgrader *Upgrader) Clean() error {
 }
 
 //writeHelper creates directory for package and write files.
-func writeHelper(path, dir string, files ...[]byte) error {
+func writeHelper(path, dir string, files ...modutils.File) error {
 	fs := afero.NewOsFs()
 	fullPath := fmt.Sprintf("%s/%s", path, dir)
 
@@ -108,11 +107,11 @@ func writeHelper(path, dir string, files ...[]byte) error {
 		return err
 	}
 
-	for index, file := range files {
+	for _, file := range files {
 		err = afero.WriteFile(
 			fs,
-			fmt.Sprintf("%s/%d.go", fullPath, index),
-			file,
+			fmt.Sprintf("%s/%s", fullPath, file.Name),
+			file.Content,
 			0644,
 		)
 		if err != nil {

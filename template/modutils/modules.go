@@ -1,4 +1,4 @@
-package template
+package modutils
 
 import "github.com/angrypie/tie/parser"
 
@@ -8,9 +8,24 @@ type Module interface {
 	Deps() []Module
 }
 
+type File struct {
+	Name    string
+	Content []byte
+}
+
 type Package struct {
 	Name  string
-	Files [][]byte
+	Files []File
+}
+
+func NewPackage(name, fileName, fileContent string) *Package {
+	return &Package{
+		Name: name,
+		Files: []File{{
+			Name:    fileName,
+			Content: []byte(fileContent),
+		}},
+	}
 }
 
 func TraverseModules(module Module, path []string, cb func(p Module, path []string) error) (err error) {

@@ -13,6 +13,7 @@ import (
 	"go/types"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	tieTypes "github.com/angrypie/tie/types"
@@ -88,12 +89,21 @@ func (p *Parser) Parse(pkg string) error {
 	return nil
 }
 
+type File struct {
+	Name    string
+	Content []byte
+}
+
 //ToFiles returns array of files in package. Each file represents as a bytes array.
-func (p *Parser) ToFiles() (files [][]byte) {
-	for _, file := range p.pkg.Files {
+func (p *Parser) ToFiles() (files []File) {
+	for path, file := range p.pkg.Files {
 		var buf bytes.Buffer
 		printer.Fprint(&buf, p.fset, file)
-		files = append(files, buf.Bytes())
+		_, name := filepath.Split(path)
+		files = append(files, File{
+			Name:    name,
+			Content: buf.Bytes(),
+		})
 	}
 	return files
 }
