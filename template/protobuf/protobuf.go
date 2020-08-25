@@ -41,6 +41,11 @@ func generateProtoSpec(info *template.PackageInfo) (spec protogen.Spec) {
 func fieldsToMessage(name string, fields []parser.Field) (message protogen.Message) {
 	message.Name = name
 	for _, field := range fields {
+		fieldType := field.Type.TypeName()
+		if fieldType == "error" {
+			fieldType = "string"
+		}
+
 		message.Fields = append(message.Fields, protogen.CustomField{
 			Name:   protogen.NameType(field.Name()),
 			Typing: field.Type.TypeName(),
