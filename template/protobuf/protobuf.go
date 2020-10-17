@@ -1,6 +1,9 @@
 package protobuf
 
 import (
+	"hash/fnv"
+	"log"
+
 	"github.com/angrypie/tie/parser"
 	"github.com/angrypie/tie/template"
 	"github.com/angrypie/tie/template/modutils"
@@ -46,11 +49,22 @@ func fieldsToMessage(name string, fields []parser.Field) (message protogen.Messa
 			fieldType = "string"
 		}
 
+		//TODO provide prod ready solution to generate field numbers
+		log.Println("TODO: protobuf fields generation is not production ready")
+		fieldNumber := hashFieldNameToNumber(field.Name())
 		message.Fields = append(message.Fields, protogen.CustomField{
 			Name:   protogen.NameType(field.Name()),
 			Typing: field.Type.TypeName(),
+			Tag:    protogen.TagType(fieldNumber),
 		})
 	}
 
 	return
+}
+
+//hashFieldNameToNumber is tmp solution for protobuf field numbers genraation.
+func hashFieldNameToNumber(s string) uint8 {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return uint8(h.Sum32() % 2047)
 }
