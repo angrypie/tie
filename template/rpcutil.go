@@ -72,6 +72,7 @@ func ServerMethods(info *PackageInfo, f *File) {
 		body := func(g *Group) {
 			middlewares := MiddlewaresMap{"getEnv": Id(GetEnvHelper)}
 			MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC())
+			g.Return(Nil())
 		}
 
 		_, request, response := GetMethodTypes(fn)

@@ -516,7 +516,6 @@ func MakeHandlerWrapper(
 	f.Func().Id(handler).ParamsFunc(wrapperParams).Func().Params(args).Params(returns).Block(
 		Return(Func().Params(args).Params(returns).BlockFunc(func(g *Group) {
 			handlerBody(g)
-			g.Return(Nil())
 		})),
 	).Line()
 }
