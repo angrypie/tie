@@ -42,11 +42,6 @@ func GetMethodTypes(fn parser.Function) (handler, request, response string) {
 	return
 }
 
-func isArgNameAreDTO(name string) bool {
-	n := strings.ToLower(name)
-	return n == "requestdto" || n == "responsedto"
-}
-
 func GetReceiverVarName(receiverTypeName string) string {
 	if receiverTypeName == "" {
 		return ""

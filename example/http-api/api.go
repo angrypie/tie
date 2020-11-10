@@ -18,18 +18,17 @@ type CreateHumanRequest struct {
 
 type CreateHumanResponse struct {
 	Msg string `json:"msg"`
-	Err error  `json:"err"`
 }
 
-func CreateHuman(id string, requestDto CreateHumanRequest) (responseDTO CreateHumanResponse) {
-	req := &requestDto
+func CreateHuman(id string, request CreateHumanRequest) (response CreateHumanResponse, err error) {
+	req := &request
 	name, id := req.Name, id
 	if name == "paul" {
-		return CreateHumanResponse{Err: errors.New("already exist")}
+		return CreateHumanResponse{}, errors.New("already exist")
 	}
 	return CreateHumanResponse{
 		Msg: fmt.Sprintf("Human %s (%s) created.", name, id),
-	}
+	}, nil
 }
 
 func DeleteHuman(name string, gender string, age int) (msg string, err error) {
