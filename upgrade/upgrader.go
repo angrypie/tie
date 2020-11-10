@@ -6,9 +6,9 @@ import (
 	"path"
 	"strings"
 
-	httpmod "github.com/angrypie/tie-modules/http"
-	"github.com/angrypie/tie-modules/micro"
 	"github.com/angrypie/tie/modules/dapr"
+	httpmod "github.com/angrypie/tie/modules/http"
+	"github.com/angrypie/tie/modules/micro"
 	"github.com/angrypie/tie/parser"
 	"github.com/angrypie/tie/template"
 	"github.com/angrypie/tie/template/modutils"
