@@ -50,7 +50,6 @@ Use `tie clean` to remove `*.run` files.
 
 ## TODO
 
-- request and response DTO
 - receiver concept
 - step by step guide
 

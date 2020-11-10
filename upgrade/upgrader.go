@@ -8,6 +8,7 @@ import (
 
 	httpmod "github.com/angrypie/tie-modules/http"
 	"github.com/angrypie/tie-modules/micro"
+	"github.com/angrypie/tie/modules/dapr"
 	"github.com/angrypie/tie/parser"
 	"github.com/angrypie/tie/template"
 	"github.com/angrypie/tie/template/modutils"
@@ -72,6 +73,8 @@ func (upgrader *Upgrader) GenerateModules(services []string) (err error) {
 			modules = append(modules, httpmod.NewModule(p))
 		case "micro":
 			modules = append(modules, micro.NewModule(p, services))
+		case "dapr":
+			modules = append(modules, dapr.NewModule(p, services))
 		default:
 			modules = append(modules, micro.NewModule(p, services))
 		}

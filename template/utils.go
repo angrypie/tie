@@ -72,10 +72,6 @@ func CreateArgsList(
 			if onlyTypes != "" && !strings.Contains(onlyTypes, arg.TypeName()+",") {
 				continue
 			}
-			if isArgNameAreDTO(arg.Name()) && prefix != "" {
-				g.Add(transform(Id(prefix).Dot(arg.TypeName()), arg))
-				return
-			}
 
 			if prefix != "" {
 				name := strings.Title(arg.Name())
@@ -133,9 +129,6 @@ func TypeDeclFormFields(name string, args []types.Field, info *PackageInfo) Code
 	return Type().Id(name).StructFunc(func(g *Group) {
 		for _, arg := range args {
 			name := arg.Name()
-			if isArgNameAreDTO(name) {
-				name = ""
-			}
 			field := Id(strings.Title(name)).Add(createTypeFromField(arg, info))
 			jsonTag := strings.ToLower(name)
 			if arg.TypeName() == "error" {

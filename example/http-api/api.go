@@ -20,8 +20,8 @@ type CreateHumanResponse struct {
 	Msg string `json:"msg"`
 }
 
-func CreateHuman(id string, requestDto CreateHumanRequest) (responseDTO CreateHumanResponse, err error) {
-	req := &requestDto
+func CreateHuman(id string, request CreateHumanRequest) (response CreateHumanResponse, err error) {
+	req := &request
 	name, id := req.Name, id
 	if name == "paul" {
 		return CreateHumanResponse{}, errors.New("already exist")
