@@ -303,6 +303,7 @@ func AssignResultsToErr(err *Statement, respId string, fields parser.ResultField
 	return err.Op("=").ListFunc(CreateArgsListFunc([]parser.Field{last}, respId))
 }
 
+//TODO name properly, helper instead middleware
 type MiddlewaresMap = map[string]*Statement
 
 //makeCallWithMiddleware injects middlewares to args list for constructor.

@@ -84,8 +84,8 @@ func ServerMethods(info *PackageInfo, f *File) {
 	})
 }
 
-//TemplateServer creates template module for RPC server.
-func TemplateServer(info *PackageInfo, f *File, cb StartRPCServerCb) {
+//TemplateRpcServer creates template module for RPC server.
+func TemplateRpcServer(info *PackageInfo, f *File, cb StartRPCServerCb) {
 	f.Func().Id("Main").Params().BlockFunc(func(main *Group) {
 		GracefulShutdown(info, main, f)
 		MakeInitService(info, main)

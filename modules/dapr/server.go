@@ -56,17 +56,14 @@ func NewUpgradedModule(p *parser.Parser, services []string) template.Module {
 	return modutils.NewStandartModule("upgraded", gen, p, nil)
 }
 
-const pbImport = "github.com/dapr/go-sdk/dapr/proto/runtime/v1"
-const grpcImport = "google.golang.org/grpc"
-
 func GenerateServer(p *parser.Parser) *template.Package {
 	info := template.NewPackageInfoFromParser(p)
 	info.SetServicePath(info.Service.Name + "/tie_modules/daprmod/upgraded")
 	f := NewFile(strings.ToLower(microModuleId))
 
-	template.TemplateServer(info, f, func(g *Group, resource, instance string) {
+	template.TemplateRpcServer(info, f, func(g *Group, resource, instance string) {
 		genInitGrpcServer(g, instance)
-		genDaprAppMethods(f, resource)
+		genMethodHandlers(info, g, f)
 	})
 
 	return modutils.NewPackage("daprmod", "server.go", f.GoString())
