@@ -39,12 +39,11 @@ func MakeStartRPCServer(info *PackageInfo, cb StartRPCServerCb, main *Group, f *
 				Params(Err().Error()).Block(
 				Return(
 					Id(handler).
-						CallFunc(MakeHandlerWrapperCall(fn, info, func(depName string) Code {
-							return Id("resource").Dot(depName)
-						})).Call(Id("ctx"), Id("request"), Id("response"))))
+						Call(Id("resource")).
+						Call(Id("ctx"), Id("request"), Id("response"))))
 		})
 
-		g.Id(resourceInstance).Op(":=").Op("&").Id(resourceName).Values(DictFunc(func(d Dict) {
+		g.Id(resourceInstance).Op(":=").Id(resourceName).Values(DictFunc(func(d Dict) {
 			for receiverType := range receiversCreated {
 				receiverVarName := GetReceiverVarName(receiverType)
 				d[Id(receiverVarName)] = Id(receiverVarName)
@@ -69,9 +68,9 @@ func GetRpcHandlerArgsList(request, response string) *Statement {
 func ServerMethods(info *PackageInfo, f *File) {
 	f.Comment("Server Methods").Line()
 	ForEachFunction(info, true, func(fn parser.Function) {
-		body := func(g *Group) {
+		body := func(g *Group, resourceInstance string) {
 			middlewares := MiddlewaresMap{"getEnv": Id(GetEnvHelper)}
-			MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC())
+			MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC(), resourceInstance)
 			g.Return(Nil())
 		}
 

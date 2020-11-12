@@ -18,7 +18,7 @@ const daprdImport = "github.com/dapr/go-sdk/service/grpc"
 
 const serverInstance = "DaprService"
 
-func genMethodHandlers(info *template.PackageInfo, g *Group, f *File) {
+func genMethodHandlers(info *template.PackageInfo, g *Group, f *File, resourceInstance string) {
 	//.2 Add handler for each function.
 	template.ForEachFunction(info, true, func(fn parser.Function) {
 		handler, _, _ := template.GetMethodTypes(fn)
@@ -30,14 +30,12 @@ func genMethodHandlers(info *template.PackageInfo, g *Group, f *File) {
 
 		g.Id(serverInstance).Dot("AddServiceInvocationHandler").Call(
 			Lit(toSnakeCase(route)),
-			Id(handler).CallFunc(template.MakeHandlerWrapperCall(fn, info, func(depName string) Code {
-				return Id(depName)
-			})),
+			Id(handler).Call(Id(resourceInstance)),
 		)
 	})
 }
 
-func genInitGrpcServer(g *Group, instance string) {
+func genInitGrpcServer(g *Group, resourceInstance string) {
 
 	g.List(Id(serverInstance), Err()).Op(":=").Qual(daprdImport, "NewService").Call(Lit(":50001"))
 	template.AddIfErrorGuard(g, nil, "err", Err())

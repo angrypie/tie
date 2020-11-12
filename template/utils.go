@@ -307,7 +307,10 @@ func AssignResultsToErr(err *Statement, respId string, fields parser.ResultField
 type MiddlewaresMap = map[string]*Statement
 
 //makeCallWithMiddleware injects middlewares to args list for constructor.
-func makeCallWithMiddleware(constructor Constructor, info *PackageInfo, middlewares MiddlewaresMap) func(g *Group) {
+func makeCallWithMiddleware(
+	constructor Constructor, info *PackageInfo,
+	middlewares MiddlewaresMap, resourceInstance string,
+) func(g *Group) {
 	return CreateArgsList(constructor.Function.Arguments, func(arg *Statement, field parser.Field) *Statement {
 		fieldName := field.Name()
 
@@ -319,7 +322,7 @@ func makeCallWithMiddleware(constructor Constructor, info *PackageInfo, middlewa
 
 		//Inject receiver dependencie
 		if info.IsReceiverType(field) {
-			return Id(GetReceiverVarName(field.TypeName()))
+			return Id(resourceInstance).Dot(GetReceiverVarName(field.TypeName()))
 		}
 
 		if isFuncType(field.TypeName()) {
@@ -436,33 +439,11 @@ func MakeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map
 	return receiversCreated
 }
 
-//MakeHandlerWrapperCall creates args list for HandlerWrapper.
-func MakeHandlerWrapperCall(fn parser.Function, info *PackageInfo, createDep func(string) Code) func(*Group) {
-	return func(g *Group) {
-		if !HasReceiver(fn) {
-			return
-		}
-		constructor, ok := info.GetConstructor(fn.Receiver)
-
-		if !ok || HasTopLevelReceiver(constructor.Function, info) {
-			//Inject receiver to http handler.
-			receiverVarName := GetReceiverVarName(fn.Receiver.TypeName())
-			g.Add(createDep(receiverVarName))
-		} else {
-			//Inject dependencies to handler for non top level receiver.
-			g.Add(getConstructorDeps(constructor, info, func(field parser.Field, g *Group) {
-				receiverVarName := GetReceiverVarName(field.TypeName())
-				g.Add(createDep(receiverVarName))
-			}))
-		}
-	}
-}
-
-//TODO accept Statement insteal Group
 //MakeOriginalCall creates dependencies and make original method call (response object must be created)
 func MakeOriginalCall(
 	info *PackageInfo, fn parser.Function, g *Group,
 	middlewares MiddlewaresMap, errGuard IfErrorGuard,
+	resourceInstance string,
 ) {
 	//If method has receiver generate receiver middleware code
 	//else just call public package method
@@ -474,12 +455,14 @@ func MakeOriginalCall(
 		if ok && !HasTopLevelReceiver(constructor.Function, info) {
 			g.Id(recId).Op(":=").New(Qual(info.GetServicePath(), receiverType))
 
-			constructorCall := makeCallWithMiddleware(constructor, info, middlewares)
+			constructorCall := makeCallWithMiddleware(constructor, info, middlewares, resourceInstance)
 			errGuard(g, List(Id(recId), Err()).Op("=").
 				Qual(info.GetServicePath(), constructor.Function.Name).CallFunc(constructorCall),
 			)
+			injectOriginalMethodCall(g, fn, Id(recId).Dot(fn.Name))
+		} else {
+			injectOriginalMethodCall(g, fn, Id(resourceInstance).Dot(recId).Dot(fn.Name))
 		}
-		injectOriginalMethodCall(g, fn, Id(recId).Dot(fn.Name))
 	} else {
 		injectOriginalMethodCall(g, fn, Qual(info.GetServicePath(), fn.Name))
 	}
@@ -488,28 +471,18 @@ func MakeOriginalCall(
 
 //HandlerWrapper creates method wrapper to inject dependencies (top level receiver).
 func MakeHandlerWrapper(
-	f *File, handlerBody func(g *Group), info *PackageInfo, fn parser.Function,
+	f *File, handlerBody func(g *Group, resource string), info *PackageInfo, fn parser.Function,
 	args, returns *Statement,
 ) {
 	handler, _, _ := GetMethodTypes(fn)
 
-	wrapperParams := func(g *Group) {
-		if !HasReceiver(fn) {
-			return
-		}
-		receiverVarName := GetReceiverVarName(fn.Receiver.TypeName())
-		constructor, ok := info.GetConstructor(fn.Receiver)
-		if !ok || HasTopLevelReceiver(constructor.Function, info) {
-			_, _, recLocal := fn.Receiver.TypeParts()
-			g.Id(receiverVarName).Op("*").Qual(info.GetServicePath(), recLocal)
-		} else {
-			g.Add(getConstructorDepsSignature(constructor, info))
-		}
-	}
+	resourceName := GetResourceName(info)
+	resourceInstance := "Instance___" + resourceName
 
-	f.Func().Id(handler).ParamsFunc(wrapperParams).Func().Params(args).Params(returns).Block(
+	f.Func().Id(handler).Params(Id(resourceInstance).Id(resourceName)).
+		Func().Params(args).Params(returns).Block(
 		Return(Func().Params(args).Params(returns).BlockFunc(func(g *Group) {
-			handlerBody(g)
+			handlerBody(g, resourceInstance)
 		})),
 	).Line()
 }

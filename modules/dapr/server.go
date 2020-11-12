@@ -63,7 +63,7 @@ func GenerateServer(p *parser.Parser) *template.Package {
 
 	template.TemplateRpcServer(info, f, func(g *Group, resource, instance string) {
 		genInitGrpcServer(g, instance)
-		genMethodHandlers(info, g, f)
+		genMethodHandlers(info, g, f, instance)
 	})
 
 	return modutils.NewPackage("daprmod", "server.go", f.GoString())

@@ -63,7 +63,7 @@ func GenerateServer(p *parser.Parser) *template.Package {
 		)
 		g.Id("service").Dot("Init").Call()
 
-		g.Qual(gomicro, "RegisterHandler").Call(Id("service").Dot("Server").Call(), Id(instance))
+		g.Qual(gomicro, "RegisterHandler").Call(Id("service").Dot("Server").Call(), Op("&").Id(instance))
 		g.Id("service").Dot("Run").Call()
 	})
 

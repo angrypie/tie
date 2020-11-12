@@ -45,7 +45,7 @@ func GenerateServer(p *parser.Parser) *template.Package {
 
 func makeHTTPHandler(info *PackageInfo, fn parser.Function, file *File) {
 	_, request, response := template.GetMethodTypes(fn)
-	handlerBody := func(g *Group) {
+	handlerBody := func(g *Group, resourceInstance string) {
 		//Bind request params
 		//Empty argument needs to avoid errors if no other arguments exist
 		g.Comment("makeHttpHandler body:").Line()
@@ -69,7 +69,8 @@ func makeHTTPHandler(info *PackageInfo, fn parser.Function, file *File) {
 			"getEnv":    Id(template.GetEnvHelper),
 			"getHeader": Id(getHeaderHelper).Call(Id("ctx")),
 		}
-		template.MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrHTTP)
+
+		template.MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrHTTP, resourceInstance)
 
 		g.Return(Id("ctx").Dot("JSON").Call(Qual("net/http", "StatusOK"), Id("response")))
 	}
@@ -83,6 +84,9 @@ func makeHTTPHandler(info *PackageInfo, fn parser.Function, file *File) {
 }
 
 func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
+	//TODO replace to generic server template
+
+	resourceInstance := "Instance___" + template.GetResourceName(info)
 	main.Err().Op(":=").Id("startServer").Call()
 	main.If(Err().Op("!=").Nil()).Block(Panic(Err()))
 
@@ -103,9 +107,7 @@ func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
 
 			g.Id("server").Dot("POST").Call(
 				Lit(toSnakeCase(route)),
-				Id(handler).CallFunc(template.MakeHandlerWrapperCall(fn, info, func(depName string) Code {
-					return Id(depName)
-				})),
+				Id(handler).Call(Id(resourceInstance)),
 			)
 		})
 
