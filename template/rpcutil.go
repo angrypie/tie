@@ -30,19 +30,6 @@ func MakeStartRPCServer(info *PackageInfo, cb StartRPCServerCb, main *Group, f *
 			}
 		})
 
-		//.2 Add handler for each function.
-		ForEachFunction(info, true, func(fn parser.Function) {
-			handler, request, response := GetMethodTypes(fn)
-
-			f.Func().Params(Id("resource").Id(resourceName)).Id(handler).
-				Params(GetRpcHandlerArgsList(request, response)).
-				Params(Err().Error()).Block(
-				Return(
-					Id(handler).
-						Call(Id("resource")).
-						Call(Id("ctx"), Id("request"), Id("response"))))
-		})
-
 		g.Id(resourceInstance).Op(":=").Id(resourceName).Values(DictFunc(func(d Dict) {
 			for receiverType := range receiversCreated {
 				receiverVarName := GetReceiverVarName(receiverType)
@@ -64,34 +51,53 @@ func GetRpcHandlerArgsList(request, response string) *Statement {
 	)
 }
 
-//ServerMethods creates server methods for each service function.
-func ServerMethods(info *PackageInfo, f *File) {
-	f.Comment("Server Methods").Line()
-	ForEachFunction(info, true, func(fn parser.Function) {
-		body := func(g *Group, resourceInstance string) {
-			middlewares := MiddlewaresMap{"getEnv": Id(GetEnvHelper)}
-			MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC(), resourceInstance)
-			g.Return(Nil())
-		}
+func DefaultRpcHandler(info *PackageInfo, f *File, fn parser.Function) {
+	body := func(g *Group, resourceInstance string) {
+		middlewares := MiddlewaresMap{"getEnv": Id(GetEnvHelper)}
+		MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC(), resourceInstance)
+		g.Return(Nil())
+	}
 
-		_, request, response := GetMethodTypes(fn)
-		MakeHandlerWrapper(
-			f, body, info, fn,
-			GetRpcHandlerArgsList(request, response),
-			Err().Error(),
-		)
-	})
+	handler, request, response := GetMethodTypes(fn)
+	MakeHandlerWrapper(
+		f, body, info, fn,
+		GetRpcHandlerArgsList(request, response),
+		Err().Error(),
+	)
+
+	resourceName := GetResourceName(info)
+	f.Func().Params(Id("resource").Id(resourceName)).Id(handler).
+		Params(GetRpcHandlerArgsList(request, response)).
+		Params(Err().Error()).Block(
+		Return(
+			Id(handler).
+				Call(Id("resource")).
+				Call(Id("ctx"), Id("request"), Id("response"))))
+}
+
+type TemplateServerConfig struct {
+	GenResourceScope StartRPCServerCb
+	GenHandler       func(info *PackageInfo, f *File, fn parser.Function)
 }
 
 //TemplateRpcServer creates template module for RPC server.
-func TemplateRpcServer(info *PackageInfo, f *File, cb StartRPCServerCb) {
+func TemplateRpcServer(info *PackageInfo, f *File, config TemplateServerConfig) {
+	if config.GenResourceScope == nil {
+		config.GenResourceScope = func(g *Group, a, b string) {}
+	}
+	if config.GenHandler == nil {
+		config.GenHandler = DefaultRpcHandler
+	}
+
 	f.Func().Id("Main").Params().BlockFunc(func(main *Group) {
 		GracefulShutdown(info, main, f)
 		MakeInitService(info, main)
-		MakeStartRPCServer(info, cb, main, f)
+		MakeStartRPCServer(info, config.GenResourceScope, main, f)
 	})
 
-	ServerMethods(info, f)
+	ForEachFunction(info, true, func(fn parser.Function) {
+		config.GenHandler(info, f, fn)
+	})
 	CreateReqRespTypes(info, f)
 	AddGetEnvHelper(f)
 }

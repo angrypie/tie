@@ -57,14 +57,16 @@ func GenerateServer(p *parser.Parser) *template.Package {
 	info.SetServicePath(info.Service.Name + "/tie_modules/micromod/upgraded")
 	f := NewFile(strings.ToLower(microModuleId))
 
-	template.TemplateRpcServer(info, f, func(g *Group, resource, instance string) {
-		g.Id("service").Op(":=").Qual(gomicro, "NewService").Call(
-			Qual(gomicro, "Name").Call(Lit(resource)),
-		)
-		g.Id("service").Dot("Init").Call()
+	template.TemplateRpcServer(info, f, template.TemplateServerConfig{
+		GenResourceScope: func(g *Group, resource, instance string) {
+			g.Id("service").Op(":=").Qual(gomicro, "NewService").Call(
+				Qual(gomicro, "Name").Call(Lit(resource)),
+			)
+			g.Id("service").Dot("Init").Call()
 
-		g.Qual(gomicro, "RegisterHandler").Call(Id("service").Dot("Server").Call(), Op("&").Id(instance))
-		g.Id("service").Dot("Run").Call()
+			g.Qual(gomicro, "RegisterHandler").Call(Id("service").Dot("Server").Call(), Op("&").Id(instance))
+			g.Id("service").Dot("Run").Call()
+		},
 	})
 
 	return modutils.NewPackage("micromod", "server.go", f.GoString())

@@ -1,6 +1,7 @@
 package dapr
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/angrypie/tie/parser"
@@ -11,6 +12,11 @@ import (
 )
 
 const microModuleId = "DaprIo"
+const daprCommon = "github.com/dapr/go-sdk/dapr/proto/common/v1"
+const daprRuntime = "github.com/dapr/go-sdk/dapr/proto/runtime/v1"
+const pbAny = "github.com/golang/protobuf/ptypes/any"
+const pbEmpty = "github.com/golang/protobuf/ptypes/empty"
+const daprdImport = "github.com/dapr/go-sdk/service/grpc"
 
 //TODO
 func GenerateClient(p *parser.Parser) (pkg *template.Package) {
@@ -61,10 +67,35 @@ func GenerateServer(p *parser.Parser) *template.Package {
 	info.SetServicePath(info.Service.Name + "/tie_modules/daprmod/upgraded")
 	f := NewFile(strings.ToLower(microModuleId))
 
-	template.TemplateRpcServer(info, f, func(g *Group, resource, instance string) {
-		genInitGrpcServer(g, instance)
-		genMethodHandlers(info, g, f, instance)
+	template.TemplateRpcServer(info, f, template.TemplateServerConfig{
+		GenResourceScope: func(g *Group, resource, instance string) {
+			genMethodHandlers(info, g, f, instance)
+		},
 	})
 
 	return modutils.NewPackage("daprmod", "server.go", f.GoString())
+}
+
+func genMethodHandlers(info *template.PackageInfo, g *Group, f *File, resourceInstance string) {
+	const serverInstance = "DaprService"
+	//Init Server
+	g.List(Id(serverInstance), Err()).Op(":=").Qual(daprdImport, "NewService").Call(Lit(":50001"))
+	template.AddIfErrorGuard(g, nil, "err", Err())
+
+	startStmt := Err().Op(":=").Id(serverInstance).Dot("Start").Call()
+	template.AddIfErrorGuard(g, startStmt, "err", Err())
+	//.2 Add handler for each function.
+	template.ForEachFunction(info, true, func(fn parser.Function) {
+		handler, _, _ := template.GetMethodTypes(fn)
+
+		route := fmt.Sprintf("/%s", fn.Name)
+		if fn.Receiver.IsDefined() {
+			route = fmt.Sprintf("%s/%s", fn.Receiver.TypeName(), fn.Name)
+		}
+
+		g.Id(serverInstance).Dot("AddServiceInvocationHandler").Call(
+			Lit(route),
+			Id(handler).Call(Id(resourceInstance)),
+		)
+	})
 }

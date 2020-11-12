@@ -26,24 +26,19 @@ func GenerateServer(p *parser.Parser) *template.Package {
 	//info.SetServicePath(info.Service.Name + "/tie_modules/httpmod/upgraded")
 	f := NewFile(strings.ToLower(httpModuleId))
 
-	f.Func().Id("Main").Params().BlockFunc(func(main *Group) {
-		template.GracefulShutdown(info, main, f)
-		template.MakeInitService(info, main)
-
-		makeStartHTTPServer(info, main, f)
+	template.TemplateRpcServer(info, f, template.TemplateServerConfig{
+		GenResourceScope: func(g *Group, resource, instance string) {
+			makeStartHTTPServer(info, g, f, instance)
+		},
+		GenHandler: makeHTTPHandler,
 	})
 
-	template.ForEachFunction(info, true, func(fn parser.Function) {
-		makeHTTPHandler(info, fn, f)
-	})
-
-	template.CreateReqRespTypes(info, f)
 	makeHelpersHTTP(f)
 
 	return modutils.NewPackage("httpmod", "server.go", f.GoString())
 }
 
-func makeHTTPHandler(info *PackageInfo, fn parser.Function, file *File) {
+func makeHTTPHandler(info *PackageInfo, file *File, fn parser.Function) {
 	_, request, response := template.GetMethodTypes(fn)
 	handlerBody := func(g *Group, resourceInstance string) {
 		//Bind request params
@@ -80,48 +75,39 @@ func makeHTTPHandler(info *PackageInfo, fn parser.Function, file *File) {
 		Id("ctx").Qual(echoPath, "Context"),
 		Err().Error(),
 	)
-
 }
 
-func makeStartHTTPServer(info *PackageInfo, main *Group, f *File) {
-	//TODO replace to generic server template
+func makeStartHTTPServer(info *PackageInfo, g *Group, f *File, resourceInstance string) {
 
-	resourceInstance := "Instance___" + template.GetResourceName(info)
-	main.Err().Op(":=").Id("startServer").Call()
-	main.If(Err().Op("!=").Nil()).Block(Panic(Err()))
+	//generate port variable initialization
+	template.MakeStartServerInit(info, g)
+	//Create labstack/echo server
+	g.Id("server").Op(":=").Qual(echoPath, "New").Call()
 
-	f.Func().Id("startServer").Params().Params(Err().Error()).BlockFunc(func(g *Group) {
-		template.MakeStartServerInit(info, g)
-		template.MakeReceiversForHandlers(info, g)
+	//Add handler for each function.
+	template.ForEachFunction(info, true, func(fn parser.Function) {
+		handler, _, _ := template.GetMethodTypes(fn)
 
-		g.Id("server").Op(":=").Qual(echoPath, "New").Call()
+		route := fmt.Sprintf("/%s", fn.Name)
+		if fn.Receiver.IsDefined() {
+			route = fmt.Sprintf("/%s/%s", fn.Receiver.TypeName(), fn.Name)
+		}
 
-		//.2 Add handler for each function.
-		template.ForEachFunction(info, true, func(fn parser.Function) {
-			handler, _, _ := template.GetMethodTypes(fn)
-
-			route := fmt.Sprintf("/%s", fn.Name)
-			if fn.Receiver.IsDefined() {
-				route = fmt.Sprintf("%s/%s", fn.Receiver.TypeName(), fn.Name)
-			}
-
-			g.Id("server").Dot("POST").Call(
-				Lit(toSnakeCase(route)),
-				Id(handler).Call(Id(resourceInstance)),
-			)
-		})
-
-		//Configuration before start
-		g.Id("server").Dot("Use").Call(Qual(echoMiddleware, "CORSWithConfig").Call(
-			Qual(echoMiddleware, "CORSConfig").Values(Dict{
-				Id("AllowOrigins"): Index().String().Values(Lit("*")),
-			}),
-		))
-		//Enable authentication if auth field is specified in config
-		addAuthenticationHTTP(info, g)
-		g.Id("server").Dot("Start").Call(Id("address"))
-		g.Return()
+		g.Id("server").Dot("POST").Call(
+			Lit(toSnakeCase(route)),
+			Id(handler).Call(Id(resourceInstance)),
+		)
 	})
+
+	//Configuration before start
+	g.Id("server").Dot("Use").Call(Qual(echoMiddleware, "CORSWithConfig").Call(
+		Qual(echoMiddleware, "CORSConfig").Values(Dict{
+			Id("AllowOrigins"): Index().String().Values(Lit("*")),
+		}),
+	))
+	//Enable authentication if auth field is specified in config
+	addAuthenticationHTTP(info, g)
+	g.Id("server").Dot("Start").Call(Id("address"))
 }
 
 func ifErrorReturnErrHTTP(scope *Group, statement *Statement) {
@@ -136,8 +122,6 @@ const firstNotEmptyStrHelper = "firstNotEmptyStrHelper"
 const getHeaderHelper = "getHeaderHelper"
 
 func makeHelpersHTTP(f *File) {
-	template.AddGetEnvHelper(f)
-
 	f.Func().Id(firstNotEmptyStrHelper).Params(Id("a"), Id("b").String()).String().Block(
 		If(Id("a").Op("!=").Lit("")).Block(Return(Id("a"))),
 		Return(Id("b")),
