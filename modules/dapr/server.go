@@ -14,6 +14,7 @@ import (
 const microModuleId = "DaprIo"
 const daprCommon = "github.com/dapr/go-sdk/service/common"
 const daprService = "github.com/dapr/go-sdk/service/grpc"
+const json = "encoding/json"
 
 //TODO
 func GenerateClient(p *parser.Parser) (pkg *template.Package) {
@@ -79,14 +80,24 @@ func genDaprHandler(info *template.PackageInfo, file *File, fn parser.Function) 
 	body := func(g *Group, resourceInstance string) {
 		middlewares := template.MiddlewaresMap{"getEnv": Id(template.GetEnvHelper)}
 		if len(fn.Arguments) != 0 {
-			g.Var().Id("request").Id(request)
+			g.Var().Id("request").Op("*").Id(request)
+			stmt := Err().Op("=").Qual(json, "Unmarshal").
+				Call(Id("in").Dot("Data"), Id("request"))
+			template.AddIfErrorGuard(g, stmt, "err", nil)
 		}
+
 		g.Var().Id("response").Id(response)
+
 		template.MakeOriginalCall(
 			info, fn, g, middlewares,
 			ifDaprHandlerError,
 			resourceInstance,
 		)
+
+		stmt := List(Id("out").Dot("Data"), Err()).Op("=").
+			Qual(json, "Marshal").Call(Id("response"))
+		template.AddIfErrorGuard(g, stmt, "err", nil)
+
 		g.Return()
 	}
 
