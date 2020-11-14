@@ -12,11 +12,8 @@ import (
 )
 
 const microModuleId = "DaprIo"
-const daprCommon = "github.com/dapr/go-sdk/dapr/proto/common/v1"
-const daprRuntime = "github.com/dapr/go-sdk/dapr/proto/runtime/v1"
-const pbAny = "github.com/golang/protobuf/ptypes/any"
-const pbEmpty = "github.com/golang/protobuf/ptypes/empty"
-const daprdImport = "github.com/dapr/go-sdk/service/grpc"
+const daprCommon = "github.com/dapr/go-sdk/service/common"
+const daprService = "github.com/dapr/go-sdk/service/grpc"
 
 //TODO
 func GenerateClient(p *parser.Parser) (pkg *template.Package) {
@@ -69,17 +66,50 @@ func GenerateServer(p *parser.Parser) *template.Package {
 
 	template.TemplateRpcServer(info, f, template.TemplateServerConfig{
 		GenResourceScope: func(g *Group, resource, instance string) {
-			genMethodHandlers(info, g, f, instance)
+			makeStartServer(info, g, f, instance)
 		},
+		GenHandler: genDaprHandler,
 	})
 
 	return modutils.NewPackage("daprmod", "server.go", f.GoString())
 }
 
-func genMethodHandlers(info *template.PackageInfo, g *Group, f *File, resourceInstance string) {
+func genDaprHandler(info *template.PackageInfo, file *File, fn parser.Function) {
+	_, request, response := template.GetMethodTypes(fn)
+	body := func(g *Group, resourceInstance string) {
+		middlewares := template.MiddlewaresMap{"getEnv": Id(template.GetEnvHelper)}
+		if len(fn.Arguments) != 0 {
+			g.Var().Id("request").Id(request)
+		}
+		g.Var().Id("response").Id(response)
+		template.MakeOriginalCall(
+			info, fn, g, middlewares,
+			ifDaprHandlerError,
+			resourceInstance,
+		)
+		g.Return()
+	}
+
+	args := List(
+		Id("ctx").Qual("context", "Context"),
+		Id("in").Op("*").Qual(daprCommon, "InvocationEvent"),
+	)
+	resp := List(
+		Id("out").Op("*").Qual(daprCommon, "Content"),
+		Err().Error(),
+	)
+
+	template.MakeHandlerWrapper(file, body, info, fn, args, resp)
+}
+
+func ifDaprHandlerError(scope *Group, statement *Statement) {
+	template.AddIfErrorGuard(scope, statement, "err", nil)
+}
+
+func makeStartServer(info *template.PackageInfo, g *Group, f *File, resourceInstance string) {
 	const serverInstance = "DaprService"
 	//Init Server
-	g.List(Id(serverInstance), Err()).Op(":=").Qual(daprdImport, "NewService").Call(Lit(":50001"))
+	g.List(Id(serverInstance), Err()).Op(":=").Qual(daprService, "NewService").Call(Lit(":50001"))
 	template.AddIfErrorGuard(g, nil, "err", Err())
 
 	startStmt := Err().Op(":=").Id(serverInstance).Dot("Start").Call()

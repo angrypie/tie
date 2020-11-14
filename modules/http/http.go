@@ -44,6 +44,7 @@ func makeHTTPHandler(info *PackageInfo, file *File, fn parser.Function) {
 		//Bind request params
 		//Empty argument needs to avoid errors if no other arguments exist
 		g.Comment("makeHttpHandler body:").Line()
+		//TODO is argumens variable unused?
 		arguments := template.CreateCombinedHandlerArgs(fn, info)
 		if len(arguments) != 0 {
 			g.Id("request").Op(":=").New(Id(request))
