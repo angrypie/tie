@@ -1,4 +1,4 @@
 services:
   - name: 'github.com/angrypie/tie/example/http-api'
     alias: 'api'
-    type: 'dapr'
+    type: 'http'

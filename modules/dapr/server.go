@@ -113,7 +113,8 @@ func genDaprHandler(info *template.PackageInfo, file *File, fn parser.Function) 
 	body := func(g *Group, resourceInstance string) {
 		middlewares := template.MiddlewaresMap{"getEnv": Id(template.GetEnvHelper)}
 		if len(fn.Arguments) != 0 {
-			g.Var().Id("request").Op("*").Id(request)
+			g.Id("request").Op(":=").New(Id(request))
+
 			stmt := Err().Op("=").Qual(json, "Unmarshal").
 				Call(Id("in").Dot("Data"), Id("request"))
 			template.AddIfErrorGuard(g, stmt, "err", nil)
@@ -126,6 +127,9 @@ func genDaprHandler(info *template.PackageInfo, file *File, fn parser.Function) 
 			ifDaprHandlerError,
 			resourceInstance,
 		)
+
+		g.Id("out").Op("=").Op("&").Qual(daprCommon, "Content").
+			Values(Dict{Id("ContentType"): Lit("application/json")})
 
 		stmt := List(Id("out").Dot("Data"), Err()).Op("=").
 			Qual(json, "Marshal").Call(Id("response"))
@@ -156,17 +160,19 @@ func makeStartServer(info *template.PackageInfo, g *Group, f *File, resourceInst
 	g.List(Id(serverInstance), Err()).Op(":=").Qual(daprService, "NewService").Call(Lit(":50001"))
 	template.AddIfErrorGuard(g, nil, "err", Err())
 
-	startStmt := Err().Op(":=").Id(serverInstance).Dot("Start").Call()
-	template.AddIfErrorGuard(g, startStmt, "err", Err())
 	//.2 Add handler for each function.
 	template.ForEachFunction(info, true, func(fn parser.Function) {
 		handler, _, _ := template.GetMethodTypes(fn)
 
-		g.Id(serverInstance).Dot("AddServiceInvocationHandler").Call(
-			Lit(getGrpcMethodRoute(fn)),
+		g.Err().Op("=").Id(serverInstance).Dot("AddServiceInvocationHandler").Call(
+			Lit(handler),
 			Id(handler).Call(Id(resourceInstance)),
 		)
+		template.AddIfErrorGuard(g, nil, "err", Err())
 	})
+
+	startStmt := Err().Op(":=").Id(serverInstance).Dot("Start").Call()
+	template.AddIfErrorGuard(g, startStmt, "err", Err())
 }
 
 func getGrpcMethodRoute(fn parser.Function) string {
