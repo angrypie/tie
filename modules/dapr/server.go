@@ -11,14 +11,47 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
-const microModuleId = "DaprIo"
+const daprModuleId = "DaprIo"
+const daprClient = "github.com/dapr/go-sdk/client"
 const daprCommon = "github.com/dapr/go-sdk/service/common"
 const daprService = "github.com/dapr/go-sdk/service/grpc"
 const json = "encoding/json"
 
 //TODO
 func GenerateClient(p *parser.Parser) (pkg *template.Package) {
-	return
+	info := template.NewPackageInfoFromParser(p)
+	//TODO all modules needs to create upgraded subpackage to make ServicePath reusable,
+	info.SetServicePath(info.Service.Name + "/tie_modules/daprmod/upgraded")
+	f := NewFile(strings.ToLower(daprModuleId))
+
+	template.TemplateClient(info, f, func(ids template.ClientMethodIds, g *Group) {
+		id := template.ID
+		client, data, content, out := id("client"), id("data"), id("content"), id("out")
+
+		//TODO maybe use global dapr client declaration
+		g.List(Id(client), Id(ids.Err)).Op(":=").Qual(daprClient, "NewClient").Call()
+		template.AddIfErrorGuard(g, nil, ids.Err, nil)
+		g.Defer().Id(client).Dot("Close").Call()
+
+		g.List(Id(data), Id(ids.Err)).Op(":=").Qual(json, "Marshal").Call(Id(ids.Request))
+		template.AddIfErrorGuard(g, nil, ids.Err, nil)
+
+		g.Id(content).Op(":=").Op("&").Qual(daprClient, "DataContent").
+			Values(Dict{
+				Id("ContentType"): Lit("application/json"),
+				Id("Data"):        Id(data),
+			})
+
+		g.List(Id(out), Id(ids.Err)).Op(":=").
+			Id(client).Dot("InvokeServiceWithContent").Call(
+			Qual("context", "TODO").Call(), Lit(ids.Resource), Lit(ids.Method), Id(content))
+		template.AddIfErrorGuard(g, nil, ids.Err, nil)
+
+		g.Err().Op("=").Qual(json, "Unmarshal").
+			Call(Id(out), Id(ids.Response))
+	})
+
+	return modutils.NewPackage("client", "client.go", f.GoString())
 }
 
 func NewClientModule(p *parser.Parser) template.Module {
@@ -31,7 +64,7 @@ func NewModule(p *parser.Parser, services []string) template.Module {
 	}
 
 	deps := []template.Module{
-		//NewClientModule(p),
+		NewClientModule(p),
 		NewUpgradedModule(p, services),
 		protobuf.NewModule(p),
 	}
@@ -63,7 +96,7 @@ func NewUpgradedModule(p *parser.Parser, services []string) template.Module {
 func GenerateServer(p *parser.Parser) *template.Package {
 	info := template.NewPackageInfoFromParser(p)
 	info.SetServicePath(info.Service.Name + "/tie_modules/daprmod/upgraded")
-	f := NewFile(strings.ToLower(microModuleId))
+	f := NewFile(strings.ToLower(daprModuleId))
 
 	template.TemplateRpcServer(info, f, template.TemplateServerConfig{
 		GenResourceScope: func(g *Group, resource, instance string) {
@@ -129,14 +162,17 @@ func makeStartServer(info *template.PackageInfo, g *Group, f *File, resourceInst
 	template.ForEachFunction(info, true, func(fn parser.Function) {
 		handler, _, _ := template.GetMethodTypes(fn)
 
-		route := fmt.Sprintf("/%s", fn.Name)
-		if fn.Receiver.IsDefined() {
-			route = fmt.Sprintf("%s/%s", fn.Receiver.TypeName(), fn.Name)
-		}
-
 		g.Id(serverInstance).Dot("AddServiceInvocationHandler").Call(
-			Lit(route),
+			Lit(getGrpcMethodRoute(fn)),
 			Id(handler).Call(Id(resourceInstance)),
 		)
 	})
+}
+
+func getGrpcMethodRoute(fn parser.Function) string {
+	route := fmt.Sprintf("%s", fn.Name)
+	if fn.Receiver.IsDefined() {
+		route = fmt.Sprintf("%s_%s", fn.Receiver.TypeName(), fn.Name)
+	}
+	return strings.ToLower(route)
 }

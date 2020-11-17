@@ -154,9 +154,8 @@ func ClientMethod(fn parser.Function, info *PackageInfo, body ClientMethodBody, 
 		}
 
 		resourceName := GetResourceName(info)
-		errId := ID("err")
-		g.Var().Id(errId).Error()
-		g.Id("_").Op("=").Id(errId)
+
+		errId := getResultsErrName(fn.Results)
 
 		//Add user body
 		body(ClientMethodIds{
@@ -167,7 +166,7 @@ func ClientMethod(fn parser.Function, info *PackageInfo, body ClientMethodBody, 
 			Response: response,
 		}, g)
 
-		AddIfErrorGuard(g, AssignErrToResults(Id(errId), fn.Results), errId, nil)
+		AddIfErrorGuard(g, nil, errId, nil)
 
 		g.Return(ListFunc(CreateArgsListFunc(fn.Results.List(), response)))
 	}
@@ -181,6 +180,10 @@ func ClientMethod(fn parser.Function, info *PackageInfo, body ClientMethodBody, 
 		ParamsFunc(CreateSignatureFromArgs(args, info)).
 		ParamsFunc(CreateSignatureFromArgs(fn.Results.List(), info)).
 		BlockFunc(baseBody).Line()
+}
+
+func getResultsErrName(results parser.ResultFields) string {
+	return results.Last.Name()
 }
 
 //ifErrorReturnErrRPC creates error guard for RPC wrapper function.

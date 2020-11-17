@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+//TODO make Last field of type ErrField ("parse, not validate")
 type ResultFields struct {
 	Last Field
 	body []Field

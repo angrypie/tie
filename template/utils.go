@@ -285,15 +285,6 @@ func AddIfErrorGuard(scope *Group, statement *Statement, errId string, code Code
 	)
 }
 
-//BindErrToResults assigns err statement to last item in fields if it's error.
-func AssignErrToResults(err *Statement, fields parser.ResultFields) (statement *Statement) {
-	last := fields.Last
-	if last.TypeName() == "error" {
-		return Id(last.Name()).Op("=").Add(err)
-	}
-	return
-}
-
 //AssignResultsToErr assign response error to err statement.
 func AssignResultsToErr(err *Statement, respId string, fields parser.ResultFields) (statement *Statement) {
 	last := fields.Last
