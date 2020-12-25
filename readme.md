@@ -48,6 +48,28 @@ curl -X POST -H 'Content-Type: application/json' localhost:8111/sum -d '{"a":20,
 
 Use `tie clean` to remove `*.run` files.
 
+
+### Statefull service (receiver concept)
+
+TODO
+
+#### Map receiver data to request
+
+```golang
+func NewPerson(name string) (person *Person, err error) {...}
+func (person Person) Say(phrase string) (result string, err error) {...}
+```
+For `http` module it would generate endpoint `/person/say` with such request:
+```json
+{
+	"text": "Hello there",
+	"person": {
+		"name": "John"
+	}
+}
+```
+
+
 ## TODO
 
 - receiver concept
