@@ -4,6 +4,11 @@ import (
 	"fmt"
 )
 
+func Hello(name string) (str string, err error) {
+	g := greeter{}
+	return g.greet(name), nil
+}
+
 type greeter struct {
 	phrase string
 }
@@ -33,10 +38,14 @@ type User struct {
 	greeter *greeter
 }
 
-func NewUser(identity *Identity, p *Provider, name string, getHeader func(string) string) (user *User, err error) {
+func NewUser(p *Provider, name string, getHeader func(string) string) (user *User, err error) {
+	g := p.greeter
+	if phrase := getHeader("Hello-Phrase"); phrase != "" {
+		g = &greeter{phrase}
+	}
 	return &User{
 		Name:    name,
-		greeter: p.greeter,
+		greeter: g,
 	}, nil
 }
 
@@ -48,13 +57,4 @@ type Guest struct{}
 
 func (guest *Guest) Hello() (greeting string, err error) {
 	return "Hello guest", nil
-}
-
-func Hello(name string) (str string, err error) {
-	g := greeter{}
-	return g.greet(name), nil
-}
-
-type Identity struct {
-	Name string
 }

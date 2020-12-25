@@ -149,7 +149,7 @@ func ClientMethod(fn parser.Function, info *PackageInfo, body ClientMethodBody, 
 		if HasReceiver(fn) {
 			constructor, ok := info.GetConstructor(fn.Receiver)
 			if ok && !HasTopLevelReceiver(constructor.Function, info) {
-				g.Id(request).Dot(RequestReceiverKey).Op("=").Id("resource")
+				g.Id(request).Dot(ReqRecName(fn)).Op("=").Id("resource")
 			}
 		}
 

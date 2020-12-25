@@ -300,7 +300,7 @@ type MiddlewaresMap = map[string]*Statement
 //makeCallWithMiddleware injects middlewares to args list for constructor.
 func makeCallWithMiddleware(
 	constructor Constructor, info *PackageInfo,
-	middlewares MiddlewaresMap, resourceInstance string,
+	middlewares MiddlewaresMap, resourceInstance, receiverPath string,
 ) func(g *Group) {
 	return CreateArgsList(constructor.Function.Arguments, func(arg *Statement, field parser.Field) *Statement {
 		fieldName := field.Name()
@@ -322,7 +322,7 @@ func makeCallWithMiddleware(
 
 		//TODO send nil for pointer or empty object
 		//Bind request argument
-		return ListFunc(CreateArgsListFunc([]parser.Field{field}, "request."+RequestReceiverKey))
+		return ListFunc(CreateArgsListFunc([]parser.Field{field}, receiverPath))
 	})
 }
 
@@ -446,7 +446,8 @@ func MakeOriginalCall(
 		if ok && !HasTopLevelReceiver(constructor.Function, info) {
 			g.Id(recId).Op(":=").New(Qual(info.GetServicePath(), receiverType))
 
-			constructorCall := makeCallWithMiddleware(constructor, info, middlewares, resourceInstance)
+			//TODO do not hardcode request variable name
+			constructorCall := makeCallWithMiddleware(constructor, info, middlewares, resourceInstance, "request."+ReqRecName(fn))
 			errGuard(g, List(Id(recId), Err()).Op("=").
 				Qual(info.GetServicePath(), constructor.Function.Name).CallFunc(constructorCall),
 			)

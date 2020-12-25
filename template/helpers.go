@@ -166,9 +166,11 @@ func MakeForEachReceiver(
 	return receiversProcessed
 }
 
-//TODO return struct type
+func ReqRecName(fn parser.Function) string {
+	return strings.Title(fn.Receiver.Name())
+}
 
-const RequestReceiverKey = "Receiver___"
+//TODO return struct type
 
 func CreateCombinedHandlerArgs(fn parser.Function, info *PackageInfo) (fields []types.Field) {
 	fields = fieldsFromParser(fn.Arguments)
@@ -177,7 +179,7 @@ func CreateCombinedHandlerArgs(fn parser.Function, info *PackageInfo) (fields []
 	}
 	cons, ok := info.GetConstructor(fn.Receiver)
 	if ok && !HasTopLevelReceiver(cons.Function, info) {
-		fields = append(fields, NewField(RequestReceiverKey, fn.Receiver.TypeName()))
+		fields = append(fields, NewField(ReqRecName(fn), fn.Receiver.TypeName()))
 	}
 
 	return
