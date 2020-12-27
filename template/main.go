@@ -122,14 +122,16 @@ func NewTypeConstructor(fn parser.Function, rec parser.Field) (constructor *Cons
 	}
 }
 
-type OptionalConstructor = func(func(Constructor), func())
+type OptionalConstructor = func(func(Constructor), ...func())
 
 func NewOptionalConstructor(constructors ...Constructor) OptionalConstructor {
-	return func(constructor func(Constructor), empty func()) {
+	return func(constructor func(Constructor), empty ...func()) {
 		if len(constructors) > 0 {
 			constructor(constructors[0])
 		} else {
-			empty()
+			if len(empty) > 0 {
+				empty[0]()
+			}
 		}
 	}
 }

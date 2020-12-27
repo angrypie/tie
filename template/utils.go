@@ -106,6 +106,7 @@ func CreateTypeAliases(info *PackageInfo, f *File) {
 func CreateReqRespTypes(info *PackageInfo, f *File) {
 	f.Comment("Request/Response types")
 	cb := func(receiver parser.Field, constructor OptionalConstructor) {
+		//TODO do not generate this on server side
 		t, c := ClientReceiverType(receiver, constructor, info)
 		f.Add(t).Line().Add(c).Line()
 	}
@@ -178,8 +179,10 @@ func ClientReceiverType(receiver parser.Field, constructor OptionalConstructor, 
 				g.Id(receiver).Op("=").New(Id(receiverType))
 
 				filtered := filterHelperArgs(args, info)
-				g.ListFunc(CreateArgsListFunc(filtered, receiver)).Op("=").
-					ListFunc(CreateArgsListFunc(filtered))
+				if len(filtered) > 0 {
+					g.ListFunc(CreateArgsListFunc(filtered, receiver)).Op("=").
+						ListFunc(CreateArgsListFunc(filtered))
+				}
 
 				g.Return(ListFunc(CreateArgsListFunc(results)))
 			})
