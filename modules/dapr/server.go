@@ -111,7 +111,7 @@ func GenerateServer(p *parser.Parser) *template.Package {
 func genDaprHandler(info *template.PackageInfo, file *File, fn parser.Function) {
 	_, request, response := template.GetMethodTypes(fn)
 	body := func(g *Group, resourceInstance string) {
-		middlewares := template.MiddlewaresMap{"getEnv": Id(template.GetEnvHelper)}
+		deps := template.DepsMap{"getEnv": Id(template.GetEnvHelper)}
 		if len(fn.Arguments) != 0 {
 			g.Id("request").Op(":=").New(Id(request))
 
@@ -123,7 +123,7 @@ func genDaprHandler(info *template.PackageInfo, file *File, fn parser.Function) 
 		g.Var().Id("response").Id(response)
 
 		template.MakeOriginalCall(
-			info, fn, g, middlewares,
+			info, fn, g, deps,
 			ifDaprHandlerError,
 			resourceInstance,
 		)

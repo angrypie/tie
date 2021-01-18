@@ -61,12 +61,12 @@ func makeHTTPHandler(info *PackageInfo, file *File, fn parser.Function) {
 		//Create response object
 		g.Id("response").Op(":=").New(Id(response))
 
-		middlewares := template.MiddlewaresMap{
+		deps := template.DepsMap{
 			"getEnv":    Id(template.GetEnvHelper),
 			"getHeader": Id(getHeaderHelper).Call(Id("ctx")),
 		}
 
-		template.MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrHTTP, resourceInstance)
+		template.MakeOriginalCall(info, fn, g, deps, ifErrorReturnErrHTTP, resourceInstance)
 
 		g.Return(Id("ctx").Dot("JSON").Call(Qual("net/http", "StatusOK"), Id("response")))
 	}

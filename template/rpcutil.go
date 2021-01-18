@@ -53,8 +53,8 @@ func GetRpcHandlerArgsList(request, response string) *Statement {
 
 func DefaultRpcHandler(info *PackageInfo, f *File, fn parser.Function) {
 	body := func(g *Group, resourceInstance string) {
-		middlewares := MiddlewaresMap{"getEnv": Id(GetEnvHelper)}
-		MakeOriginalCall(info, fn, g, middlewares, ifErrorReturnErrRPC(), resourceInstance)
+		deps := DepsMap{"getEnv": Id(GetEnvHelper)}
+		MakeOriginalCall(info, fn, g, deps, ifErrorReturnErrRPC(), resourceInstance)
 		g.Return(Nil())
 	}
 

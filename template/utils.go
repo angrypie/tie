@@ -297,20 +297,19 @@ func AssignResultsToErr(err *Statement, respId string, fields parser.ResultField
 	return err.Op("=").ListFunc(CreateArgsListFunc([]parser.Field{last}, respId))
 }
 
-//TODO name properly, helper instead middleware
-type MiddlewaresMap = map[string]*Statement
+type DepsMap = map[string]*Statement
 
-//makeCallWithMiddleware injects middlewares to args list for constructor.
-func makeCallWithMiddleware(
+//makeCallWithDeps injects deps to args list for constructor.
+func makeCallWithDeps(
 	constructor Constructor, info *PackageInfo,
-	middlewares MiddlewaresMap, resourceInstance, receiverPath string,
+	deps DepsMap, resourceInstance, receiverPath string,
 ) func(g *Group) {
 	return CreateArgsList(constructor.Function.Arguments, func(arg *Statement, field parser.Field) *Statement {
 		fieldName := field.Name()
 
-		for name, middleware := range middlewares {
+		for name, dep := range deps {
 			if fieldName == name {
-				return middleware
+				return dep
 			}
 		}
 
@@ -329,16 +328,16 @@ func makeCallWithMiddleware(
 	})
 }
 
-//makeEmptyValuesMiddlewareCall inject middlewares and empy values to args list for constructor.
-func makeEmptyValuesMiddlewareCall(fn parser.Function, info *PackageInfo, middlewares MiddlewaresMap) func(g *Group) {
+//makeEmptyValuesWithDepsCall inject deps and empy values to args list for constructor.
+func makeEmptyValuesWithDepsCall(fn parser.Function, info *PackageInfo, deps DepsMap) func(g *Group) {
 	return CreateArgsList(fn.Arguments, func(arg *Statement, field parser.Field) *Statement {
 		fieldName := field.Name()
 		//TODO CHECK
 		prefix, path, local := field.TypeParts()
 
-		for name, middleware := range middlewares {
+		for name, dep := range deps {
 			if fieldName == name {
-				return middleware
+				return dep
 			}
 		}
 
@@ -409,7 +408,7 @@ func MakeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map
 					return
 				}
 				fn := c.Function
-				constructorCall := makeEmptyValuesMiddlewareCall(fn, info, MiddlewaresMap{"getEnv": Id(GetEnvHelper)})
+				constructorCall := makeEmptyValuesWithDepsCall(fn, info, DepsMap{"getEnv": Id(GetEnvHelper)})
 				g.List(Id(recId), Err()).Op(":=").Qual(info.GetServicePath(), fn.Name).CallFunc(constructorCall)
 				AddIfErrorGuard(g, nil, "err", nil)
 
@@ -436,10 +435,10 @@ func MakeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map
 //MakeOriginalCall creates dependencies and make original method call (response object must be created)
 func MakeOriginalCall(
 	info *PackageInfo, fn parser.Function, g *Group,
-	middlewares MiddlewaresMap, errGuard IfErrorGuard,
+	deps DepsMap, errGuard IfErrorGuard,
 	resourceInstance string,
 ) {
-	//If method has receiver generate receiver middleware code
+	//If method has receiver generate receiver dep code
 	//else just call public package method
 	if HasReceiver(fn) {
 		constructor, ok := info.GetConstructor(fn.Receiver)
@@ -450,7 +449,7 @@ func MakeOriginalCall(
 			g.Id(recId).Op(":=").New(Qual(info.GetServicePath(), receiverType))
 
 			//TODO do not hardcode request variable name
-			constructorCall := makeCallWithMiddleware(constructor, info, middlewares, resourceInstance, "request."+ReqRecName(fn))
+			constructorCall := makeCallWithDeps(constructor, info, deps, resourceInstance, "request."+ReqRecName(fn))
 			errGuard(g, List(Id(recId), Err()).Op("=").
 				Qual(info.GetServicePath(), constructor.Function.Name).CallFunc(constructorCall),
 			)
