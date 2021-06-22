@@ -3,16 +3,10 @@ package upgrade
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os/exec"
 
 	"github.com/spf13/afero"
 )
-
-//Build calls BuildTo method with parent direcotry as argument
-func (upgrader *Upgrader) Build() error {
-	return upgrader.BuildTo(".")
-}
 
 //BuildTo builds upgraded package binary to specified directory.
 //For main packages build source dir is tie_modules/upgraded.
@@ -43,11 +37,11 @@ func (upgrader *Upgrader) BuildTo(dist string) error {
 		dist,
 		binName,
 	)
-	fmt.Println(buildComand)
+	fmt.Println("Build command:", buildComand)
 
 	output, err := exec.Command("sh", "-c", buildComand).CombinedOutput()
 	if err != nil {
-		log.Println(string(output))
+		fmt.Println("Build erorr: ", string(output))
 		return err
 	}
 

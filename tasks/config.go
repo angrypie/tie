@@ -6,6 +6,7 @@ import (
 	"go/build"
 	"log"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -19,10 +20,10 @@ import (
 
 var ErrConfigNotFound = errors.New("config not found")
 
-//ReadConfigFile trying to find tie.yml in specified direcotry
+//ReadConfigFile trying to find tie.yaml in specified direcotry
 func ReadConfigFile(dest string) error {
 	fs := afero.NewOsFs()
-	configPath := fmt.Sprintf("%s/tie.yml", dest)
+	configPath := path.Join(dest, "tie.yaml")
 	buf, err := afero.ReadFile(fs, configPath)
 	if err != nil {
 		return ErrConfigNotFound
@@ -84,7 +85,7 @@ func ReadDirAsConfig(dest string) error {
 	return withConfigFile(&config)
 }
 
-//Config execut different task based on tie.yml configurations
+//Config execut different task based on tie.yaml configurations
 func configFromYaml(config []byte, dest string) (err error) {
 
 	c := &types.ConfigFile{}
@@ -93,7 +94,7 @@ func configFromYaml(config []byte, dest string) (err error) {
 		return err
 	}
 
-	//Default build path is tie.yml direcotry
+	//Default build path is tie.yaml direcotry
 	if c.Path == "" {
 		destPath, err := filepath.Abs(dest)
 		log.Println(dest, destPath)

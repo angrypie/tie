@@ -12,7 +12,7 @@ import (
 func main() {
 	app := cli.NewApp()
 	app.Name = "Creating microservices on top of golang packages (package as a service)"
-	app.UsageText = "Use inside directory with tiel.yml or let tie decide automaticaly"
+	app.UsageText = "Use inside directory with tiel.yaml or let tie decide automaticaly"
 	app.Action = defaultCommand
 
 	//TODO log all temporary files to be able to remove them with clean command.
@@ -36,7 +36,7 @@ func defaultCommand(c *cli.Context) error {
 		if err != tasks.ErrConfigNotFound {
 			return err
 		}
-		fmt.Println("Can't find tie.yml in current directory")
+		fmt.Println("Can't find tie.yaml in current directory")
 		err := tasks.ReadDirAsConfig(".")
 		if err != nil {
 			fmt.Println(err)

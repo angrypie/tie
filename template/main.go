@@ -1,7 +1,7 @@
 package template
 
 import (
-	"fmt"
+	"path"
 
 	"github.com/angrypie/tie/parser"
 	"github.com/angrypie/tie/template/modutils"
@@ -17,8 +17,8 @@ func GetMainPackage(packagePath string, modules []string) *Package {
 
 	f.Func().Id("main").Params().BlockFunc(func(g *Group) {
 		for _, module := range modules {
-			path := fmt.Sprintf("%s/tie_modules/%s", packagePath, module)
-			g.Qual(path, "Main").Call()
+			importPath := path.Join(packagePath, "tie_modules", module)
+			g.Qual(importPath, "Main").Call()
 		}
 		makeWaitGuard(g)
 	})
@@ -33,7 +33,7 @@ func NewMainModule(p *parser.Parser, deps []Module) Module {
 	}
 
 	generator := func(p *parser.Parser) *Package {
-		return GetMainPackage(p.Service.Name, modules)
+		return GetMainPackage(p.Package.Name, modules)
 	}
 	return modutils.NewStandartModule("tie_modules", generator, p, deps)
 }
@@ -47,11 +47,12 @@ type PackageInfo struct {
 	Service       *types.Service
 	//ServicePath should refer to modified original package.
 	servicePath string
+	ModulePath  string
 }
 
 func (info PackageInfo) GetServicePath() string {
 	if info.servicePath == "" {
-		return info.Service.Name
+		return info.ModulePath
 	}
 	return info.servicePath
 }
@@ -87,6 +88,7 @@ func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
 		Service:      p.Service,
 		Constructors: make(map[string]Constructor),
 		PackageName:  p.GetPackageName(),
+		ModulePath:   p.Package.Name,
 	}
 
 	for _, fn := range functions {

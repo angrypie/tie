@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
-	"go/build"
 	"go/importer"
 	"go/parser"
 	"go/printer"
@@ -13,10 +12,13 @@ import (
 	"go/types"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	tieTypes "github.com/angrypie/tie/types"
+	"github.com/spf13/afero"
+	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/go/types/typeutil"
 )
@@ -46,9 +48,15 @@ func NewParser(service *tieTypes.Service) *Parser {
 }
 
 //Parse initializes parser by parsing package. Should be called before any other method.
-func (p *Parser) Parse(pkg string) error {
-	log.Println(">", pkg)
-	p.Package = NewPackage(pkg)
+func (p *Parser) Parse(pkgPath string) error {
+	log.Println(">", pkgPath)
+
+	modPath, err := GetModulePath(pkgPath)
+	if err != nil {
+		return err
+	}
+
+	p.Package = NewPackage(pkgPath, modPath)
 	if p.Service.Alias == "" {
 		p.Service.Alias = p.Package.Alias
 	}
@@ -79,7 +87,7 @@ func (p *Parser) Parse(pkg string) error {
 		files = append(files, file)
 	}
 
-	conf := types.Config{Importer: importer.For("source", nil)}
+	conf := types.Config{Importer: importer.ForCompiler(p.fset, "source", nil)}
 
 	p.Pkg, err = conf.Check(p.Package.Path, p.fset, files, nil)
 	if err != nil {
@@ -147,13 +155,13 @@ func (p *Parser) UpgradeApiImports(imports []string, upgrade func(string) string
 }
 
 //NewPackage returns new Packege instance wit initialized Name, Alias and Path.
-func NewPackage(name string) *Package {
-	arr := strings.Split(name, "/")
+func NewPackage(path string, modulePath string) *Package {
+	arr := strings.Split(path, "/")
 	alias := arr[len(arr)-1]
 	return &Package{
-		Name:  name,
+		Name:  modulePath,
 		Alias: alias,
-		Path:  fmt.Sprintf("%s/src/%s", build.Default.GOPATH, name),
+		Path:  path,
 	}
 }
 
@@ -264,5 +272,21 @@ func (p *Parser) GetTypes() (specs []*TypeSpec, err error) {
 			log.Println(">>>>>TYPE", t.Type().String())
 		}
 	}
+	return
+}
+
+func GetModulePath(dirPath string) (modPath string, err error) {
+	fs := afero.NewOsFs()
+	gomod := path.Join(dirPath, "go.mod")
+	buf, err := afero.ReadFile(fs, gomod)
+	if err != nil {
+		return modPath, fmt.Errorf("reading %s: %w", gomod, err)
+	}
+
+	modPath = modfile.ModulePath(buf)
+	if modPath == "" {
+		return modPath, fmt.Errorf("canont find a module path for %s", gomod)
+	}
+
 	return
 }

@@ -8,6 +8,7 @@ require (
 	github.com/spf13/afero v1.6.0
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli v1.22.5
+	golang.org/x/mod v0.4.2
 	golang.org/x/tools v0.1.3
 	gopkg.in/yaml.v2 v2.4.0
 )
