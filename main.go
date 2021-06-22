@@ -16,7 +16,7 @@ func main() {
 	app.Action = defaultCommand
 
 	//TODO log all temporary files to be able to remove them with clean command.
-	app.Commands = []*cli.Command{
+	app.Commands = []cli.Command{
 		{
 			Name:   "clean",
 			Usage:  "Clean binaries",
@@ -58,4 +58,3 @@ func cleanCommand(c *cli.Context) error {
 	}
 	return nil
 }
-
