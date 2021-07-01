@@ -110,6 +110,12 @@ func configFromYaml(config []byte, dest string) (err error) {
 func withConfigFile(c *types.ConfigFile) (err error) {
 	var upgraders []*upgrade.Upgrader
 
+	cleanGoMod, err := initGoModules(c.Path)
+	if err != nil {
+		return
+	}
+	defer cleanGoMod()
+
 	//Create upgraders
 	for _, service := range c.Services {
 		upgrader, err := upgradeWithServices(service, c.Services)
@@ -124,12 +130,6 @@ func withConfigFile(c *types.ConfigFile) (err error) {
 		}()
 		upgraders = append(upgraders, upgrader)
 	}
-
-	cleanGoMod, err := initGoModules(c.Path)
-	if err != nil {
-		return
-	}
-	defer cleanGoMod()
 
 	//Build upgraders
 	for _, upgrader := range upgraders {
@@ -161,15 +161,20 @@ func initGoModules(dest string) (clean func(), err error) {
 			}
 		}
 		return
+	} else {
+		clean = func() {
+			goSumPath := fmt.Sprintf("%s/go.sum", dest)
+			logError(fs.Remove(goModulePath), "removing go.mod")
+			logError(fs.Remove(goSumPath), "removing go.sum")
+		}
+
+		output, err := exec.Command("sh", "-c", "go mod init tmp_module").CombinedOutput()
+		if err != nil {
+			log.Println(string(output))
+		}
 	}
 
-	clean = func() {
-		goSumPath := fmt.Sprintf("%s/go.sum", dest)
-		logError(fs.Remove(goModulePath), "removing go.mod")
-		logError(fs.Remove(goSumPath), "removing go.sum")
-	}
-
-	output, err := exec.Command("sh", "-c", "go mod init").CombinedOutput()
+	output, err := exec.Command("sh", "-c", "go mod tidy").CombinedOutput()
 	if err != nil {
 		log.Println(string(output))
 	}

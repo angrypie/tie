@@ -280,7 +280,7 @@ func GetModulePath(dirPath string) (modPath string, err error) {
 	gomod := path.Join(dirPath, "go.mod")
 	buf, err := afero.ReadFile(fs, gomod)
 	if err != nil {
-		return modPath, fmt.Errorf("reading %s: %w", gomod, err)
+		return modPath, fmt.Errorf("reading go.mod %s: %w", gomod, err)
 	}
 
 	modPath = modfile.ModulePath(buf)

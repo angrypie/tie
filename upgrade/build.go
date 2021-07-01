@@ -32,7 +32,7 @@ func (upgrader *Upgrader) BuildTo(dist string) error {
 	}
 
 	buildComand := fmt.Sprintf(
-		"cd %s && go build -o %s/%s",
+		"cd %s && go mod tidy && go build -o %s/%s",
 		path,
 		dist,
 		binName,
