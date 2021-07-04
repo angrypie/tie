@@ -94,7 +94,7 @@ func makeStartHTTPServer(info *PackageInfo, g *Group, f *File, resourceInstance 
 			route = fmt.Sprintf("/%s/%s", fn.Receiver.TypeName(), fn.Name)
 		}
 
-		g.Id("server").Dot("POST").Call(
+		g.Id("server").Dot("Any").Call(
 			Lit(toSnakeCase(route)),
 			Id(handler).Call(Id(resourceInstance)),
 		)
