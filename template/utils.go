@@ -155,6 +155,7 @@ func ClientReceiverType(receiver parser.Field, constructor OptionalConstructor, 
 
 		typeDecl = Type().Id(receiverType).StructFunc(func(g *Group) {
 			for _, arg := range filterHelperArgs(args, info) {
+				//TODO add json tag to client type which is used also for nested receiver dep init
 				field := Id(strings.Title(arg.Name())).Add(createTypeFromField(arg, info))
 				g.Add(field)
 			}
@@ -200,6 +201,9 @@ func createTypeFromField(field types.Field, info *PackageInfo) Code {
 	}
 	if path == info.Service.Name {
 		path = info.GetServicePath()
+	}
+	if info.IsReceiverType(field) {
+		return Op(prefix).Id(local)
 	}
 	return Op(prefix).Qual(path, local)
 }
@@ -316,9 +320,9 @@ func makeCallWithDeps(
 		//Inject newely created or top level receiver dependencie
 		if depConstructor, ok := info.GetConstructor(field); ok {
 			if HasTopLevelReceiver(depConstructor.Function, info) {
-				return Id(ID("dep", field.Name()))
+				return Id(resourceInstance).Dot(GetReceiverVarName(field.TypeName()))
 			}
-			return Id(resourceInstance).Dot(GetReceiverVarName(field.TypeName()))
+			return Id(ID("dep", field.Name()))
 		}
 
 		if isFuncType(field.TypeName()) {
@@ -453,15 +457,16 @@ func MakeOriginalCall(
 			//If method receiver has contructor with another receiver as dep (but not
 			//top level), than create those instances with their deps as well.
 			for _, arg := range constructor.Function.Arguments {
-				depConstructor, isReceiver := info.GetConstructor(arg)
-				if isReceiver && HasTopLevelReceiver(depConstructor.Function, info) {
+				depCons, isReceiver := info.GetConstructor(arg)
+				if !isReceiver || HasTopLevelReceiver(depCons.Function, info) {
 					continue
 				}
+				receiverType := depCons.Receiver.TypeName()
 				recId := ID("dep", arg.Name())
-				g.Id(recId).New(Qual(info.GetServicePath(), receiverType))
-				constructorCall := makeCallWithDeps(depConstructor, info, deps, resourceInstance, "request."+ReqRecName(fn))
+				g.Id(recId).Op(":=").New(Qual(info.GetServicePath(), receiverType))
+				constructorCall := makeCallWithDeps(depCons, info, deps, resourceInstance, "request."+ReqRecName(fn)+"."+receiverType)
 				errGuard(g, List(Id(recId), Err()).Op("=").
-					Qual(info.GetServicePath(), constructor.Function.Name).CallFunc(constructorCall),
+					Qual(info.GetServicePath(), depCons.Function.Name).CallFunc(constructorCall),
 				)
 
 			}

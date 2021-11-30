@@ -62,12 +62,12 @@ func (info *PackageInfo) SetServicePath(path string) {
 }
 
 //TODO check receiver taht does not have constructors
-func (info PackageInfo) IsReceiverType(field parser.Field) bool {
+func (info PackageInfo) IsReceiverType(field types.Field) bool {
 	_, ok := info.GetConstructor(field)
 	return ok
 }
 
-func (info PackageInfo) GetConstructor(field parser.Field) (constructor Constructor, ok bool) {
+func (info PackageInfo) GetConstructor(field types.Field) (constructor Constructor, ok bool) {
 	constructor, ok = info.Constructors[field.TypeName()]
 	return
 }

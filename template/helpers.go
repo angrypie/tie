@@ -122,7 +122,7 @@ func isFuncType(t string) bool {
 //filterNotReceiverArgs removes receivers args from filed list
 func filterHelperArgs(fields []parser.Field, info *PackageInfo) (filtered []parser.Field) {
 	for _, field := range fields {
-		if _, ok := info.GetConstructor(field); ok {
+		if cons, ok := info.GetConstructor(field); ok && HasTopLevelReceiver(cons.Function, info) {
 			continue
 		}
 		filtered = append(filtered, field)
