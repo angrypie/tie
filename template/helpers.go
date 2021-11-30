@@ -53,7 +53,7 @@ func HasReceiver(fn parser.Function) bool {
 	return fn.Receiver.IsDefined()
 }
 
-//HasTopLevelReceiver returns true if function has other receiver as argumenet.
+//HasTopLevelReceiver returns false if function has other receiver as argumenet.
 func HasTopLevelReceiver(fn parser.Function, info *PackageInfo) bool {
 	for _, field := range fn.Arguments {
 		if _, ok := info.GetConstructor(field); ok {

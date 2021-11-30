@@ -313,8 +313,11 @@ func makeCallWithDeps(
 			}
 		}
 
-		//Inject receiver dependencie
-		if info.IsReceiverType(field) {
+		//Inject newely created or top level receiver dependencie
+		if depConstructor, ok := info.GetConstructor(field); ok {
+			if HasTopLevelReceiver(depConstructor.Function, info) {
+				return Id(ID("dep", field.Name()))
+			}
 			return Id(resourceInstance).Dot(GetReceiverVarName(field.TypeName()))
 		}
 
@@ -446,6 +449,22 @@ func MakeOriginalCall(
 		//TODO replace recId with generated name
 		recId := GetReceiverVarName(receiverType)
 		if ok && !HasTopLevelReceiver(constructor.Function, info) {
+			//TODO make rucursive deps initialization?
+			//If method receiver has contructor with another receiver as dep (but not
+			//top level), than create those instances with their deps as well.
+			for _, arg := range constructor.Function.Arguments {
+				depConstructor, isReceiver := info.GetConstructor(arg)
+				if isReceiver && HasTopLevelReceiver(depConstructor.Function, info) {
+					continue
+				}
+				recId := ID("dep", arg.Name())
+				g.Id(recId).New(Qual(info.GetServicePath(), receiverType))
+				constructorCall := makeCallWithDeps(depConstructor, info, deps, resourceInstance, "request."+ReqRecName(fn))
+				errGuard(g, List(Id(recId), Err()).Op("=").
+					Qual(info.GetServicePath(), constructor.Function.Name).CallFunc(constructorCall),
+				)
+
+			}
 			g.Id(recId).Op(":=").New(Qual(info.GetServicePath(), receiverType))
 
 			//TODO do not hardcode request variable name
@@ -453,6 +472,7 @@ func MakeOriginalCall(
 			errGuard(g, List(Id(recId), Err()).Op("=").
 				Qual(info.GetServicePath(), constructor.Function.Name).CallFunc(constructorCall),
 			)
+
 			injectOriginalMethodCall(g, fn, Id(recId).Dot(fn.Name))
 		} else {
 			injectOriginalMethodCall(g, fn, Id(resourceInstance).Dot(recId).Dot(fn.Name))
