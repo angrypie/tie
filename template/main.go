@@ -68,7 +68,8 @@ func (info PackageInfo) IsReceiverType(field types.Field) bool {
 }
 
 func (info PackageInfo) GetConstructor(field types.Field) (constructor Constructor, ok bool) {
-	constructor, ok = info.Constructors[field.TypeName()]
+	_, path, local := field.TypeParts()
+	constructor, ok = info.Constructors[path+"."+local]
 	return
 }
 
@@ -101,7 +102,8 @@ func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
 
 		receiver, ok := isConventionalConstructor(fn)
 		if ok {
-			info.Constructors[receiver.TypeName()] = *NewTypeConstructor(fn, receiver)
+			_, path, local := receiver.TypeParts()
+			info.Constructors[path+"."+local] = *NewTypeConstructor(fn, receiver)
 		}
 	}
 

@@ -21,7 +21,7 @@ import (
 var ErrConfigNotFound = errors.New("config not found")
 
 //ReadConfigFile trying to find tie.yaml in specified direcotry
-func ReadConfigFile(dest string) error {
+func ReadConfigFile(dest string, generateOnly bool) error {
 	fs := afero.NewOsFs()
 	configPath := path.Join(dest, "tie.yaml")
 	buf, err := afero.ReadFile(fs, configPath)
@@ -29,10 +29,15 @@ func ReadConfigFile(dest string) error {
 		return ErrConfigNotFound
 	}
 
-	return configFromYaml(buf, dest)
+	config, err := configFromYaml(buf, dest)
+	if err != nil {
+		return err
+	}
+
+	return withConfigFile(config, generateOnly)
 }
 
-func ReadDirAsConfig(dest string) error {
+func ReadDirAsConfig(dest string, generateOnly bool) error {
 	fs := afero.NewOsFs()
 	files, err := afero.ReadDir(fs, dest)
 	if err != nil {
@@ -82,16 +87,16 @@ func ReadDirAsConfig(dest string) error {
 		config.Services = append(config.Services, types.Service{Name: basePath, Type: "http"})
 	}
 
-	return withConfigFile(&config)
+	return withConfigFile(&config, generateOnly)
 }
 
 //Config execut different task based on tie.yaml configurations
-func configFromYaml(config []byte, dest string) (err error) {
+func configFromYaml(config []byte, dest string) (c *types.ConfigFile, err error) {
 
-	c := &types.ConfigFile{}
+	c = &types.ConfigFile{}
 	err = yaml.Unmarshal(config, c)
 	if err != nil {
-		return err
+		return
 	}
 
 	//Default build path is tie.yaml direcotry
@@ -99,15 +104,15 @@ func configFromYaml(config []byte, dest string) (err error) {
 		destPath, err := filepath.Abs(dest)
 		log.Println(dest, destPath)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		c.Path = destPath
 	}
 
-	return withConfigFile(c)
+	return
 }
 
-func withConfigFile(c *types.ConfigFile) (err error) {
+func withConfigFile(c *types.ConfigFile, generateOnly bool) (err error) {
 	var upgraders []*upgrade.Upgrader
 
 	cleanGoMod, err := initGoModules(c.Path)
@@ -122,13 +127,19 @@ func withConfigFile(c *types.ConfigFile) (err error) {
 		if err != nil {
 			return err
 		}
+		upgraders = append(upgraders, upgrader)
+		if generateOnly {
+			continue
+		}
 		defer func() {
 			err := upgrader.Clean()
 			if err != nil {
 				fmt.Println("Failed to clean upgrader", err)
 			}
 		}()
-		upgraders = append(upgraders, upgrader)
+	}
+	if generateOnly {
+		return
 	}
 
 	//Build upgraders

@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"go/build"
 	"go/types"
 	"log"
 	"reflect"
@@ -69,15 +68,11 @@ func (t Type) TypeName() string {
 }
 
 func (t Type) TypeParts() (prefix, path, local string) {
-	fullPath := t.fullPkgPath()
+	path = t.fullPkgPath()
 	typeString := t.typ.String()
 
 	local = t.TypeName()
-	prefix = strings.TrimSuffix(typeString, fullPath+"."+local)
-	path = strings.TrimPrefix(
-		t.fullPkgPath(),
-		build.Default.GOPATH+"/src/",
-	)
+	prefix = strings.TrimSuffix(typeString, path+"."+local)
 
 	return
 }

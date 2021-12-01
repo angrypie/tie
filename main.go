@@ -24,6 +24,13 @@ func main() {
 		},
 	}
 
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{
+			Name:  "gen",
+			Usage: "set true to generate code without build and clean",
+		},
+	}
+
 	err := app.Run(os.Args)
 	if err != nil {
 		fmt.Println(err)
@@ -31,13 +38,13 @@ func main() {
 }
 
 func defaultCommand(c *cli.Context) error {
-	err := tasks.ReadConfigFile(".")
+	err := tasks.ReadConfigFile(".", c.Bool("gen"))
 	if err != nil {
 		if err != tasks.ErrConfigNotFound {
 			return err
 		}
 		fmt.Println("Can't find tie.yaml in current directory")
-		err := tasks.ReadDirAsConfig(".")
+		err := tasks.ReadDirAsConfig(".", c.Bool("gen"))
 		if err != nil {
 			fmt.Println(err)
 		}
