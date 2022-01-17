@@ -11,8 +11,8 @@ import (
 	. "github.com/dave/jennifer/jen"
 )
 
-const echoPath = "github.com/labstack/echo"
-const echoMiddleware = "github.com/labstack/echo/middleware"
+const echoPath = "github.com/labstack/echo/v4"
+const echoMiddleware = "github.com/labstack/echo/v4/middleware"
 const httpModuleId = "HTTP"
 
 type PackageInfo = template.PackageInfo
@@ -101,11 +101,19 @@ func makeStartHTTPServer(info *PackageInfo, g *Group, f *File, resourceInstance 
 	})
 
 	//Configuration before start
+	//CORS middleware
 	g.Id("server").Dot("Use").Call(Qual(echoMiddleware, "CORSWithConfig").Call(
 		Qual(echoMiddleware, "CORSConfig").Values(Dict{
 			Id("AllowOrigins"): Index().String().Values(Lit("*")),
 		}),
 	))
+	//Gzip middleware
+	g.Id("server").Dot("Use").Call(Qual(echoMiddleware, "GzipWithConfig").Call(
+		Qual(echoMiddleware, "GzipConfig").Values(Dict{
+			Id("Level"): Lit(4),
+		}),
+	))
+
 	//Enable authentication if auth field is specified in config
 	addAuthenticationHTTP(info, g)
 	g.Id("server").Dot("Start").Call(Id("address"))
