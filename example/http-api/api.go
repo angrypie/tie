@@ -5,12 +5,15 @@ import (
 	"fmt"
 )
 
+var humans map[string]Human
+
 func InitService() (err error) {
+	humans = make(map[string]Human)
 	fmt.Println("Server started")
 	return
 }
 
-type CreateHumanRequest struct {
+type Human struct {
 	Name   string
 	Age    int
 	Gender string
@@ -18,19 +21,37 @@ type CreateHumanRequest struct {
 
 type CreateHumanResponse struct {
 	Msg string `json:"msg"`
+	Human
 }
 
-func CreateHuman(id string, request CreateHumanRequest) (response CreateHumanResponse, err error) {
-	req := &request
-	name, id := req.Name, id
-	if name == "paul" {
+func CreateHuman(name, gender string, age int) (response CreateHumanResponse, err error) {
+	_, ok := humans[name]
+	if ok {
 		return CreateHumanResponse{}, errors.New("already exist")
 	}
+
+	humans[name] = Human{Name: name, Age: age, Gender: gender}
+
 	return CreateHumanResponse{
-		Msg: fmt.Sprintf("Human %s (%s) created.", name, id),
+		Msg:   fmt.Sprintf("Human %s created.", name),
+		Human: humans[name],
 	}, nil
 }
 
-func DeleteHuman(name string, gender string, age int) (msg string, err error) {
-	return fmt.Sprintf("Human %s (%s) deleted", name, gender), nil
+func GetHuman(name string) (human Human, err error) {
+	human, ok := humans[name]
+	if !ok {
+		err = errors.New("not found")
+	}
+	return
+}
+
+func DeleteHuman(name string) (err error) {
+	_, ok := humans[name]
+	if !ok {
+		err = errors.New("not found")
+		return
+	}
+	delete(humans, name)
+	return
 }

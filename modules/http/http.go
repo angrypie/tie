@@ -48,13 +48,6 @@ func makeHTTPHandler(info *PackageInfo, file *File, fn parser.Function) {
 		arguments := template.CreateCombinedHandlerArgs(fn, info)
 		if len(arguments) != 0 {
 			g.Id("request").Op(":=").New(Id(request))
-			g.List(Id("_"), ListFunc(template.CreateArgsListFunc(fn.Arguments, "request", "string,"))).Op("=").
-				List(Lit(0), ListFunc(template.CreateArgsList(fn.Arguments, func(arg *Statement, field parser.Field) *Statement {
-					return Id(firstNotEmptyStrHelper).Call(
-						Id("request").Dot(strings.Title(field.Name())),
-						Id("ctx").Dot("QueryParam").Call(Lit(strings.ToLower(arg.GoString()))),
-					)
-				}, "", "string,")))
 			template.AddIfErrorGuard(g, Err().Op(":=").Id("ctx").Dot("Bind").Call(Id("request")), "err", Err())
 		}
 

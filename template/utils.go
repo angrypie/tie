@@ -135,7 +135,8 @@ func TypeDeclFormFields(name string, args []types.Field, info *PackageInfo) Code
 			if arg.TypeName() == "error" {
 				jsonTag = "-"
 			}
-			field.Tag(map[string]string{"json": jsonTag})
+			//TODO query tag is for echo, inject tag generation instead
+			field.Tag(map[string]string{"json": jsonTag, "query": jsonTag})
 			g.Add(field)
 		}
 	})
