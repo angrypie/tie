@@ -73,6 +73,18 @@ func (info PackageInfo) GetConstructor(field types.Field) (constructor Construct
 	return
 }
 
+//check if receiver receiver have function with specified name
+func (info PackageInfo) GetFunction(receiver types.Field, functionName string) (function parser.Function, ok bool) {
+	receiverType := receiver.TypeName()
+	for _, fn := range info.Functions {
+		//If receiver type have Stop method add it to special stoppableServices list
+		if HasReceiver(fn) && fn.Receiver.TypeName() == receiverType && fn.Name == "Stop" {
+			return fn, true
+		}
+	}
+	return
+}
+
 func NewPackageInfoFromParser(p *parser.Parser) *PackageInfo {
 	functions := p.GetFunctions()
 

@@ -63,6 +63,8 @@ func HasTopLevelReceiver(fn parser.Function, info *PackageInfo) bool {
 	return true
 }
 
+//ForEachFunction executes callback for each function in package
+//expecept special Stop function that shoudn't be externaly exposed.
 func ForEachFunction(info *PackageInfo, skipInit bool, cb func(parser.Function)) {
 	fns := info.Functions
 	if skipInit {

@@ -420,19 +420,15 @@ func MakeReceiversForHandlers(info *PackageInfo, g *Group) (receiversCreated map
 				g.List(Id(recId), Err()).Op(":=").Qual(info.GetServicePath(), fn.Name).CallFunc(constructorCall)
 				AddIfErrorGuard(g, nil, "err", nil)
 
-				receiversCreated[receiver.TypeName()] = receiver
+				receiversCreated[receiverType] = receiver
 			}, func() {
 				g.Id(recId).Op(":=").New(Qual(info.GetServicePath(), receiverType))
-				receiversCreated[receiver.TypeName()] = receiver
+				receiversCreated[receiverType] = receiver
 			})
 
-		if skipInitStopable {
-			return
-		}
-		for _, fn := range info.Functions {
-			if fn.Name == "Stop" {
+		if !skipInitStopable {
+			if _, ok := info.GetFunction(receiver, "Stop"); ok {
 				g.Id("stoppableServices").Op("=").Append(Id("stoppableServices"), Id(recId))
-				return
 			}
 		}
 	}
